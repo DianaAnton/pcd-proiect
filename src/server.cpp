@@ -11,13 +11,45 @@
 #include <netdb.h>
 #include <arpa/inet.h>
 #include <resolv.h>
+#include <pthread.h>
+
 
 #define SERV_TCP_PORT 7979
 #define MAXLINE 1024
 #define MAXHOSTNAME 100
-#define BOOL int
-#define TRUE 1
-#define FALSE 0
+#define NRTHREADS 100
+
+pthread_mutex_t mutex;
+bool connection = false;
+
+
+/**
+ *  COMPLETAT FUNCTII DE PARSARE FISIERE JSON, apoi stocate local
+ *  IN FUNCTIE DE OPTIUNEA SELECTATA, SE VOR STERGE, CREEA, MODIFICA 
+ *  fisiere JSON
+ *  STABILIRE CLARA A FUNCTIILOR DE CATRE SERVER  
+ */
+
+
+void* serverHandler(int sockfd) {
+
+    int msg_recv;
+    pthread_mutex_lock(&mutex);
+    connection = true;
+    pthread_mutex_unlock(&mutex);
+
+    char msg[MAXLINE];
+
+    send(sockfd, "cv", 1, 0);
+
+    while (msg_recv = recv(sockfd, &msg, MAXLINE, 0)) {
+      // aici ar trebui sa se intample magie cu transmitere de fisiere bla bla
+    }
+
+    pthread_mutex_lock(&mutex);
+    connection = false;
+    pthread_mutex_unlock(&mutex);
+} 
 
 using namespace std;
 int main() {
@@ -26,8 +58,11 @@ int main() {
     int rc, sockfd, clilen, newsockfd, childpid;
     struct hostent *he;
     char msg[MAXLINE];
+    pthread_t thread[NRTHREADS];
     char *NumeServer = "pcd proiect"; // numele serverului luat din argv[0]
     char NumeHostServer[MAXHOSTNAME];
+
+    //pthread_mutex_init(&mutex, NULL);
 
     gethostname(NumeHostServer, MAXHOSTNAME);
     printf("\n----TCPServer startat pe hostul: %s\n", NumeHostServer);
@@ -41,10 +76,10 @@ int main() {
 
     int check = 1;
     // if (setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR, &check, sizeof(int)) < 0)
-    //     perror("setsockopt(SO_REUSEADDR) failed");
+    //     fprintf("setsockopt(SO_REUSEADDR) failed");
     
     if ( (sockfd = socket(AF_INET, SOCK_STREAM, 0)) < 0)
-        perror("EROARE server: nu pot sa deschid stream socket");
+        fprintf(stderr,"EROARE server: nu pot sa deschid stream socket \n");
 
     bzero((char *) &serv_addr, sizeof(serv_addr));
     serv_addr.sin_family = AF_INET;
@@ -53,25 +88,27 @@ int main() {
 
 
     if (bind(sockfd, (struct sockaddr *) &serv_addr, sizeof(serv_addr)) < 0)
-        perror("EROARE server: nu pot sa asignez un nume adresei locale");
+        fprintf(stderr, "EROARE server: nu pot sa asignez un nume adresei locale \n");
 
     printf("---TCPServer %s: ++++ astept conexiune clienti pe PORT: %d++++\n\n", NumeServer, ntohs(serv_addr.sin_port));
 
-    listen(sockfd, 50);
+    if (listen(sockfd, 100) < 0) {
+      fprintf(stderr, "Eroare!");
+      exit(0);
+    }
 
-    for (;;) {
+    while(1) {
       bzero((char *)&cli_addr, sizeof(cli_addr));
       clilen = sizeof(cli_addr);
       socklen_t cli_addr_size = sizeof(cli_addr);
       newsockfd = accept(sockfd, (struct sockaddr *) &cli_addr, &cli_addr_size);
-      //newsockfd = accept(sockfd, (struct sockaddr *) &cli_addr, (socklen_t *)clilen);
       if (newsockfd < 0) {
-        perror("EROARE server: accept() esuat");
+        fprintf(stderr, "EROARE server: accept() esuat \n");
         exit(-1);
       }
 
-      rc = recv(newsockfd, &msg, MAXLINE,0);
-      printf("<<<<<<<<<<<< _%s_ >>>>>>>>>>>", msg);
+      while (rc = recv(newsockfd, &msg, MAXLINE,0)){
+      printf("De la client: %s \n", msg);
       msg[MAXLINE] = '\0';
       send(newsockfd, msg, strlen(msg), 0);
       if (strstr(msg,"adio")) // adio este in line ???
@@ -85,5 +122,6 @@ int main() {
       {
       bzero((char *)&cli_addr, sizeof(cli_addr));
       };
+      }
     }
 }

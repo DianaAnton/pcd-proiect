@@ -11,6 +11,9 @@
 #include <netdb.h>
 #include <arpa/inet.h>
 #include <resolv.h>
+#include <iostream>
+#include <string.h>
+#include <cstring>
 //#include <strings.h> /* e mai nou decat string.h, dar nu merge */
 /* Definitii pentru programul server TCP */
 /* 1. Porturtul TCP utilizat. */
@@ -18,7 +21,7 @@
 /* 2. Alte constante */
 #define MAXLINE 512 /* nr. max. octeti de citit cu recv() */
 #define MAXHOSTNAME 100 /* nr. max. octeti nume host */
-
+using namespace std;
 /**
  *  COMPLETAT FUNCTII DE TRASNMITERE FISIER JSON CATRE SERVER
  *  CREEARE FISIER JSON
@@ -30,22 +33,82 @@
 void echoToServer(int sockfd) {
     // mesajul
     char line[MAXLINE];
-    int check;
+    int check, option;
     // bucla infinita, se opreste cand clientul a trimis mesajul "adio"
-    while (1) {
-        bzero(line, sizeof(line));
-        printf("Introdu mesajul care va fi trimis: ");
-        scanf("%s", line);
-        // trimitere mesaj
-        write(sockfd, line, sizeof(line));
-        bzero(line, sizeof(line));
-        read(sockfd, line, sizeof(line));
-        // verificare mesaj de deconectare client
-        if (strstr(line,"adio")) {
-            printf("Deconectare client!");
-            exit(1);
+    bzero(line, sizeof(line));
+    // send client type
+    send(sockfd, "client", sizeof("client"), 0);
+    recv(sockfd, &line, MAXLINE, 0);
+    cout << line << endl;
+
+    while (1) 
+    {            
+        cout << "1. Creare cont\n";
+        cout << "2. Conectare\n";
+        cout << "Optiune: "; cin >> option;
+        
+        switch (option)
+        {
+            case 1:
+            {
+                // Register
+                string username, passwd;
+                cout << "Introduceti nume de utilizator: ";
+                getline(cin >> ws, username);
+                cout << "Introduceti parola: ";
+                getline(cin >> ws, passwd);
+
+                send(sockfd, username.c_str(), sizeof(username.c_str()), 0);
+                send(sockfd, passwd.c_str(), sizeof(passwd.c_str()), 0);
+                break;
+            }
+            case 2:
+            {
+                // Connect
+                string username, passwd;
+                
+                cout << "Introduceti nume de utilizator: ";
+                getline(cin >> ws, username);
+                cout << "Introduceti parola: ";
+                getline(cin >> ws, passwd);
+
+                send(sockfd, username.c_str(), sizeof(username.c_str()), 0);
+                send(sockfd, passwd.c_str(), sizeof(passwd.c_str()), 0);
+                // gets ok from server
+                recv(sockfd, &line, MAXLINE, 0);
+                if (strcmp(line, "ok") == 0)
+                {
+                    cout << "Conectat!\n";
+                    send(sockfd, "adio", sizeof("adio"), 0);
+                    // TODO meniu options
+                }
+                else
+                {
+                    // EROARE
+                    cout << "[ERROR] Server: " << line << endl;
+                    send(sockfd, "adio", sizeof("adio"), 0);
+                }
+                break;
+            }
         }
+
+
+
+        // printf("Introdu mesajul care va fi trimis: ");
+        // scanf("%s", line);
+        // // trimitere mesaj
+        // write(sockfd, line, sizeof(line));
+        // bzero(line, sizeof(line));
+        // read(sockfd, line, sizeof(line));
+        // // verificare mesaj de deconectare client
+        // if (strstr(line,"adio")) {
+        //     printf("Deconectare client!");
+        //     close(sockfd);
+        //     exit(1);
+
+        // }
     }
+    close(sockfd);
 }
 
 
@@ -69,7 +132,8 @@ int main(int argc, char *argv[])
     serv_addr.sin_addr.s_addr = inet_addr("127.0.0.1");
     serv_addr.sin_port = htons(CLIENT_TCP_PORT);
     
-    if (connect(sockfd, (struct sockaddr *)&serv_addr, sizeof(serv_addr)) != 0) {
+    if (connect(sockfd, (struct sockaddr *)&serv_addr, sizeof(serv_addr)) != 0) 
+    {
         fprintf(stderr, "Eroare la conectare!");
         exit(0);
     }

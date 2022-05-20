@@ -45,6 +45,7 @@ void echoToServer(int sockfd) {
     {            
         cout << "1. Creare cont\n";
         cout << "2. Conectare\n";
+        cout << "3. Adio\n";
         cout << "Optiune: "; cin >> option;
         
         switch (option)
@@ -88,6 +89,11 @@ void echoToServer(int sockfd) {
                     cout << "[ERROR] Server: " << line << endl;
                     send(sockfd, "adio", sizeof("adio"), 0);
                 }
+                break;
+            }
+            case 3:
+            {
+                send(sockfd, "adio", sizeof("adio"), 0);
                 break;
             }
         }

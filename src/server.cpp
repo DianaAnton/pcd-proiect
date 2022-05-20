@@ -142,12 +142,14 @@ int main()
     inet_ntoa(serv_addr.sin_addr)); // conversie adresa binarea in ASCII (ex. "127.0.0.1")
     /* numele procesului server luat de pe linia de comanda */
 
-    int check = 1;
-    // if (setsockopt(sock_fd, SOL_SOCKET, SO_REUSEADDR, &check, sizeof(int)) < 0)
-    //     fprintf("setsockopt(SO_REUSEADDR) failed");
-    
     if ( (sock_fd = socket(AF_INET, SOCK_STREAM, 0)) < 0)
         fprintf(stderr,"EROARE server: nu pot sa deschid stream socket \n");
+
+    int check = 1;
+    if (setsockopt(sock_fd, SOL_SOCKET, SO_REUSEADDR, &check, sizeof(int)) < 0)
+        fprintf(stderr, "setsockopt(SO_REUSEADDR) failed");
+    
+
 
     bzero((char *) &serv_addr, sizeof(serv_addr));
     serv_addr.sin_family = AF_INET;
@@ -183,27 +185,29 @@ int main()
       // string message = msg;
       cout << "1\n" << msg << endl;
       cout << "mata";
-      if (strncmp(msg, "admin", sizeof("admin")) == 0)
+      if (strncmp(msg, "admin\0", sizeof("admin\0")) == 0)
       {
         cout << "2\n";
-        // if (admin_connection == false)
-        // {
-        //   pthread_create(&thds[connections++], NULL, admin_handler, 
-        //                 (void *) &new_sock_fd);
-        // }
-        // else
-        // {
-        //   char temp_msg[100] = "[ERROR] Un admin e deja conectat.\n";
-        //   send(new_sock_fd, temp_msg, sizeof(temp_msg), 0);
-        //   close(new_sock_fd);
-        // }
+        if (admin_connection == false)
+        {
+          pthread_create(&thds[connections++], NULL, admin_handler, 
+                        (void *) &new_sock_fd);
+        }
+        else
+        {
+          char temp_msg[100] = "[ERROR] Un admin e deja conectat.\n";
+          send(new_sock_fd, temp_msg, sizeof(temp_msg), 0);
+          close(new_sock_fd);
+        }
       }
-      else if (strncmp(msg, "client", sizeof("client")) == 0)
+      else if (strncmp(msg, "client\0", sizeof("client\0")) == 0)
       {
-        send(new_sock_fd, "lala", sizeof("lala"), 0);
+        // send(new_sock_fd, "lala", sizeof("lala"), 0);
         cout << "In if client";
-        // pthread_create(&thds[connections++], NULL, client_handler, 
-        //                 (void *) &new_sock_fd);
+        pthread_create(&thds[connections], NULL, client_handler, 
+                        (void *) &new_sock_fd);
+        pthread_join(thds[connections], NULL);
+        connections++;
       }
       else{
         cout<< "mata";

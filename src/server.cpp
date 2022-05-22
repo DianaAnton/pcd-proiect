@@ -27,11 +27,7 @@ using namespace std;
 pthread_mutex_t mutex;
 bool admin_connection = false;
 int connections = 0;
-/**
- * ADMIN: 0
- * CLIENT: 1
- * 
- */
+using namespace std;
 
 /**
  *  COMPLETAT FUNCTII DE PARSARE FISIERE JSON, apoi stocate local
@@ -66,8 +62,7 @@ int connections = 0;
 // int parseJson() {
 //   json = testJson
 // }
-
-
+//============================================================================//
 void* admin_handler(void* args)
 {
     int recv_msg_len;
@@ -94,32 +89,122 @@ void* admin_handler(void* args)
     pthread_mutex_lock(&mutex);
     admin_connection = false;
     pthread_mutex_unlock(&mutex);
+    return nullptr;
 }
-
+//============================================================================//
+void create_user(char *username, char *passwd)
+{
+  printf("[DEBUG] Create User received: %s %s\n", username, passwd);
+  // TODO salvare in fisier + creare id?
+}
+//----------------------------------------------------------------------------//
+void login_user(char *username, char *passwd)
+{
+  printf("[DEBUG] Login User received: %s %s\n", username, passwd);
+  // TODO verificare din fisier
+}
+//----------------------------------------------------------------------------//
 void* client_handler(void* args) 
 {
-    int recv_msg_len; 
+    int recv_msg_len, option, error; 
     int *sock_fd = (int *) args;
     char recv_msg[MAXLINE];
+    bool login = false;
 
-    cout << "Client conectat!" << endl;
+    cout << "[INFO] Client connected!" << endl;
     char send_msg[MAXLINE] = "te-ai conectat la server!";
     //bzero(mssg, MAXLINE);
-    send(*sock_fd, send_msg, MAXLINE, 0);
+    error = send(*sock_fd, send_msg, MAXLINE, 0);
+    cout << "send: " << error << endl;
+    cout << "ERRNO: " << errno << " " << strerror(errno) << endl; 
     
-    while (recv_msg_len = recv(*sock_fd, &recv_msg, MAXLINE, 0)) 
-    {
-      cout << "MSG am primit de la client:" << recv_msg << endl;
-      
-      if (strcmp(recv_msg, "adio"))
+    while(1) 
+    { // recv option not connected
+      recv_msg_len = recv(*sock_fd, &recv_msg, MAXLINE, 0);
+      printf("[DEBUG] Message received: %s\n", recv_msg);
+      error = send(*sock_fd, "ok", sizeof("ok"), 0);
+      cout << "send: " << error << endl;
+      cout << "ERRNO: " << errno << " " << strerror(errno) << endl; 
+      printf("[DEBUG] Message sent: ok\n");
+      option = atoi(recv_msg);
+      if (!login)
       {
-        close(*sock_fd);
+        switch (option)
+        {
+          case 1:
+          {
+            bzero(recv_msg, sizeof(recv_msg));
+            recv_msg_len = recv(*sock_fd, &recv_msg, MAXLINE, 0);
+            recv_msg[recv_msg_len] = '\0';
+            
+            // split message
+            char *username;
+            username = strtok(recv_msg, "|");
+            char *passwd = strtok(NULL, "\0");
+            create_user(username, passwd);
+            break;
+          }
+          case 2:
+          {
+            bzero(recv_msg, sizeof(recv_msg));
+            recv_msg_len = recv(*sock_fd, &recv_msg, MAXLINE, 0);
+            recv_msg[recv_msg_len] = '\0';
+            printf("[DEBUG] Message received: %s\n", recv_msg);
+            
+            // split message
+            char *username;
+            username = strtok(recv_msg, "|");
+            char *passwd = strtok(NULL, "\0");
+            login_user(username, passwd);
+            break;
+          }
+          case 3:
+          {
+            send(*sock_fd, "Te-ai deconectat de la server!", 
+                sizeof("Te-ai deconectat de la server!"), 0);
+            close(*sock_fd);
+            break;
+          }
+        }
       }
-      // aici ar trebui sa se intample magie cu transmitere de fisiere bla bla
+      else if (login)
+      {
+        // aici ar trebui sa se intample magie cu transmitere de fisiere bla bla
+        switch (option)
+        {
+          case 1:
+          { // add data
+            
+            break;
+          }
+          case 2:
+          { // read data
+            
+            break;
+          }
+          case 3:
+          { // update data
+            
+            break;
+          }
+          case 4:
+          { // delete data
+            
+            break;
+          }
+          case 5:
+          { // exit
+            
+            break;
+          }
+        }
+      }
+      
+
+      
     }
 } 
-
-using namespace std;
+//============================================================================//
 int main() 
 {    
     struct sockaddr_in cli_addr, serv_addr;
@@ -127,7 +212,7 @@ int main()
     struct hostent *he;
     char msg[MAXLINE];
     pthread_t thds[NRTHREADS];
-    char *NumeServer = "pcd proiect"; // numele serverului luat din argv[0]
+    char *NumeServer = (char *) "pcd proiect"; // numele serverului luat din argv[0]
     char NumeHostServer[MAXHOSTNAME];
 
     //pthread_mutex_init(&mutex, NULL);
@@ -173,28 +258,26 @@ int main()
       bzero((char *)&cli_addr, sizeof(cli_addr));
       socklen_t cli_addr_size = sizeof(cli_addr);
       new_sock_fd = accept(sock_fd, (struct sockaddr *) &cli_addr, &cli_addr_size);
-      // start thread cu functie client
-      if (new_sock_fd < 0) {
+    
+      if (new_sock_fd < 0)
+      {
         fprintf(stderr, "[EROARE SERVER]: accept()\n");
         exit(1);
       }
       msg_len = recv(new_sock_fd, &msg, MAXLINE, 0);
-      printf("CLIENT TYPE: %s\n", msg);
+      printf("[INFO] Client Type: %s\n", msg);
       msg[msg_len] = '\0';
       
-      // string message = msg;
-      cout << "1\n" << msg << endl;
-      cout << "mata";
       if (strncmp(msg, "admin\0", sizeof("admin\0")) == 0)
-      {
-        cout << "2\n";
+      { // start thread cu functie admin
         if (admin_connection == false)
-        {
-          pthread_create(&thds[connections++], NULL, admin_handler, 
+        { // daca nu mai e conectat unul deja
+          pthread_create(&thds[connections], NULL, admin_handler, 
                         (void *) &new_sock_fd);
+          connections++;
         }
         else
-        {
+        { // daca e conectat, send error to client
           char temp_msg[100] = "[ERROR] Un admin e deja conectat.\n";
           send(new_sock_fd, temp_msg, sizeof(temp_msg), 0);
           close(new_sock_fd);
@@ -202,15 +285,17 @@ int main()
       }
       else if (strncmp(msg, "client\0", sizeof("client\0")) == 0)
       {
-        // send(new_sock_fd, "lala", sizeof("lala"), 0);
-        cout << "In if client";
+      cout << "aici\n";
         pthread_create(&thds[connections], NULL, client_handler, 
-                        (void *) &new_sock_fd);
+                        (void *) &new_sock_fd); 
+      cout << "aici2\n";
         pthread_join(thds[connections], NULL);
         connections++;
       }
-      else{
-        cout<< "mata";
+      else
+      {
+        printf("[ERROR] Unkown connection. Closing...\n");
+        close(new_sock_fd);
       }
 
 

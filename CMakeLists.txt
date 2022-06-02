@@ -1,0 +1,5 @@
+project( PCD-PROIECT )
+cmake_minimum_required( VERSION 2.6 )
+add_subdirectory (src)
+file( GLOB SRCS *.c *.cpp *.cc *.h *.hpp )
+add_executable( ${PROJECT_NAME} main.cpp} )

@@ -17,8 +17,12 @@ default_target: all
 .SUFFIXES:
 
 
-# Remove some rules from gmake that .SUFFIXES does not remove.
-SUFFIXES =
+BIN		:= bin
+SRC		:= src/*.cpp $(shell find $(lib) -name *.cpp)
+INCLUDE	:= -Iinclude -Ilib \
+ -I/usr/local/include/mongocxx/v_noabi \
+ -I/usr/local/include/bsoncxx/v_noabi \
+LIB		:= lib
 
 .SUFFIXES: .hpux_make_needs_suffix_list
 

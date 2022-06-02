@@ -113,52 +113,68 @@ int create_client_id()
   /* NOTICE: YOU NEED TO STORE THIS INFORMATION AT SERVER LEVEL !*/
   return uuid;
 }
+//----------------------------------------------------------------------------//
+bool login_user(char *username, char *passwd, int *sock_fd)
+{
+  ifstream client_file("clients.json");
+  json client_json;
+  client_file >> client_json;
+  client_file.close();
 
+  if (client_json.contains(username))
+  { // the user exists
+    string passwd_temp = passwd;
+    string stored_pass = client_json[username]["passwd"];
+    // compare passwords
+    if (stored_pass.compare(passwd) == 0)
+    {
+      return true;
+    }
+    return false;
+  }
+  return false;
+}
+//----------------------------------------------------------------------------//
+// void login_user_(char *username, char *passwd)
+// {
+//   ifstream client_file("clients.json");
+//   json client_json;
+//   client_file >> client_json;
+
+//   for (json::iterator it = client_json.begin(); it != client_json.end(); ++it)
+//   {
+//     std::cout << it.key() << " : " << it.value() << "\n";
+
+//   }
+// }
+//----------------------------------------------------------------------------//
 void create_user(char *username, char *passwd)
 {
-  FILE *users;
+  // create client id
   int id = create_client_id();
-
+  // open read file
+  std::ifstream client_read("clients.json");
   printf("[DEBUG] Create User received: %s %s\n", username, passwd);
-  printf("NU EXISTA");
+  // read data from file
+  json clients_json;
+  client_read >> clients_json;
+  // close read file
+  client_read.close();
 
-  std::ifstream i("clienti.json");
-  json j;
-  i >> j;
-  cout << "ceva";
-  std::cout << j;
-  std::ofstream o("test.json");
-  o << std::setw(4) << j << std::endl;
+  // declare details
+  json details;
+  details["id"] = id;
+  details["passwd"] = passwd;
+  // add details to object
+  clients_json[username] = details;
+  cout << clients_json.dump(4) << endl;
 
-  users = fopen("clienti.txt", "a+");
-  if (users == NULL)
-  {
-    fprintf(stderr, "[EROARE] Errno: %d, msg %s\n", errno, strerror(errno));
-  }
-  else
-  {
-    fprintf(users, "%d", id);
-    fprintf(users, "%s", ", ");
-    fprintf(users, "%s", username);
-    fprintf(users, "%s", ", ");
-    fprintf(users, "%s", passwd);
-    fprintf(users, "%s", "\n");
-    fclose(users);
-  }
-
-  // json j;
-  // j['id'] = '123';
-  // j['id2'] = '1234';
-  // string test_j = j.dump();
-  // cout << "string json: " << j.dump() << endl;
+  // open write file
+  std::ofstream client_write("clients.json");
+  client_write << std::setw(4) << clients_json << std::endl;
+  // close write file
+  client_write.close();
 }
-
-// TODO salvare in fisier + creare id?
-
-//----------------------------------------------------------------------------//
-// vojson array_not_object = json::array({ {"currency", "USD"}, {"value", 42.99} });
-// TODO verificaarray_not_objecte din fisier
-
 //----------------------------------------------------------------------------//
 void *client_handler(void *args)
 {
@@ -167,26 +183,29 @@ void *client_handler(void *args)
   char recv_msg[MAXLINE];
   bool login = false;
 
-  pthread_mutex_lock(&mutex);
+  // pthread_mutex_lock(&mutex);
   cout << "[INFO] Client connected!" << endl;
   char send_msg[MAXLINE] = "te-ai conectat la server!";
-  pthread_mutex_unlock(&mutex);
+  // pthread_mutex_unlock(&mutex);
   // bzero(mssg, MAXLINE);
   error = send(*sock_fd, send_msg, MAXLINE, 0);
-  cout << "send: " << error << endl;
-  cout << "ERRNO: " << errno << " " << strerror(errno) << endl;
+  cout << "[DEBUG] Send: " << error << endl;
+  cout << "[ERROR] ERRNO: " << errno << " " << strerror(errno) << endl;
 
   while (1)
   { // recv option not connected
     recv_msg_len = recv(*sock_fd, &recv_msg, MAXLINE, 0);
     printf("[DEBUG] Message received: %s\n", recv_msg);
     error = send(*sock_fd, "ok", sizeof("ok"), 0);
-    cout << "send: " << error << endl;
-    cout << "ERRNO: " << errno << " " << strerror(errno) << endl;
+    cout << "[DEBUG] Send: " << error << endl;
+    cout << "[ERROR] ERRNO: " << errno << " " << strerror(errno) << endl;
     printf("[DEBUG] Message sent: ok\n");
+
+    // convert to int
     option = atoi(recv_msg);
     bzero(recv_msg, sizeof(recv_msg));
-    if (!login)
+
+    if (login == false)
     {
       switch (option)
       {
@@ -194,54 +213,89 @@ void *client_handler(void *args)
       {
         char username[100];
         char passwd[100];
-        printf("In first case\n");
         bzero(recv_msg, sizeof(recv_msg));
+
+        // recv username
         recv_msg_len = recv(*sock_fd, &recv_msg, MAXLINE, 0);
-        // recv_msg[recv_msg_len] = '\0';
-        // printf("Printing data and size :%s %d \n", recv_msg, recv_msg_len);
+        // store the username
         for (int i = 0; i < recv_msg_len; i++)
         {
           username[i] = recv_msg[i];
         }
-        printf("Printing data and size :%s \n", username);
+        printf("[DEBUG] Username :%s \n", username);
+        // reset buffer
         bzero(recv_msg, sizeof(recv_msg));
+
+        // recv passwd
         recv_msg_len = recv(*sock_fd, &recv_msg, MAXLINE, 0);
-        // recv_msg[recv_msg_len] = '\0';
+        // store the passwd
         for (int i = 0; i < recv_msg_len; i++)
         {
           passwd[i] = recv_msg[i];
         }
-        printf("Printing data :%s \n", passwd);
+        printf("[DEBUG] Paswd:%s \n", passwd);
 
-        // split message
-        // char *username;
-        // username = strtok(recv_msg, "|");
-        // char *passwd = strtok(NULL, "\0");
-
+        // create child to execute function
         pid_t child = fork();
         if (child == 0)
-        {
+        { // child
           create_user(username, passwd);
           exit(0);
         }
         else if (child > 1)
-        {
+        { // parent wait for child
           wait(NULL);
         }
         break;
       }
       case 2:
       {
+        char username[100];
+        char passwd[100];
         bzero(recv_msg, sizeof(recv_msg));
-        recv_msg_len = recv(*sock_fd, &recv_msg, MAXLINE, 0);
-        recv_msg[recv_msg_len] = '\0';
-        printf("[DEBUG] Message received: %s\n", recv_msg);
 
-        // split message
-        char *username;
-        username = strtok(recv_msg, "|");
-        char *passwd = strtok(NULL, "\0");
-        // login_user(username, passwd);
+        // recv username
+        recv_msg_len = recv(*sock_fd, &recv_msg, MAXLINE, 0);
+        // store the username
+        for (int i = 0; i < recv_msg_len; i++)
+        {
+          username[i] = recv_msg[i];
+        }
+        printf("[DEBUG] Username :%s \n", username);
+        // reset buffer
+        bzero(recv_msg, sizeof(recv_msg));
+
+        // recv passwd
+        recv_msg_len = recv(*sock_fd, &recv_msg, MAXLINE, 0);
+        // store the passwd
+        for (int i = 0; i < recv_msg_len; i++)
+        {
+          passwd[i] = recv_msg[i];
+        }
+        printf("[DEBUG] Paswd:%s \n", passwd);
+
+        // create child to execute function
+        pid_t child = fork();
+        if (child == 0)
+        { // child
+          if (login_user(username, passwd, sock_fd))
+          {
+            cout << "[INFO] Logged in!\n";
+            send(*sock_fd, "ok", sizeof("ok"), 0);
+          }
+          else
+          {
+            cout << "[ERROR] Credentials invalid!\n";
+            send(*sock_fd, "[ERROR] Credentials invalid!", 
+                 sizeof("[ERROR] Credentials invalid!"), 0);
+          }
+          // exit the child
+          exit(0);
+        }
+        else if (child > 1)
+        { // parent wait for child
+          wait(NULL);
+        }
         break;
       }
       case 3:

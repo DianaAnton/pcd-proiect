@@ -19,7 +19,7 @@
 /* 1. Porturtul TCP utilizat. */
 #define CLIENT_TCP_PORT 7979
 /* 2. Alte constante */
-#define MAXLINE 50000   /* nr. max. octeti de citit cu recv() */
+#define MAXLINE 1000000   /* nr. max. octeti de citit cu recv() */
 #define MAXHOSTNAME 100 /* nr. max. octeti nume host */
 using namespace std;
 /**
@@ -155,9 +155,10 @@ void echoToServer(int sockfd)
         {
             cout << "1. Adaugare date noi\n";
             cout << "2. Vizualizare date\n";
-            cout << "3. Modificare date\n";
-            cout << "4. Stergere date\n";
-            cout << "5. Exit\n";
+            cout << "3. Cauta o valoare specifica\n";
+            cout << "4. Modificare date\n";
+            cout << "5. Stergere date\n";
+            cout << "6. Exit\n";
             cout << "Optiune: ";
             cin >> option;
             switch (option)
@@ -169,12 +170,11 @@ void echoToServer(int sockfd)
                     string key, value;
                     cout << "Introduceti numele secretului: ";
                     getline(cin >> ws, key);
+                    send(sockfd, key.c_str(), sizeof(key.c_str()), 0);
                     cout << "Introduceti valoarea: ";
                     getline(cin >> ws, value);
-                    // concatenate the values
-                    string info = key + "|" + value;
-
-                    send(sockfd, info.c_str(), sizeof(info.c_str()), 0);
+                    sleep(1);
+                    send(sockfd, value.c_str(), sizeof(value.c_str()), 0);
                 }
                 else
                 {
@@ -183,10 +183,13 @@ void echoToServer(int sockfd)
                 break;
             }
             case 2:
-            { // Read data
+            { // Read all data
                 if (send_option_to_server((char *)"2", sockfd))
                 {
+                    bzero(line, sizeof(line));
                     recv(sockfd, line, MAXLINE, 0);
+                    line[size] = '\0';
+                    cout << line << endl;
                 }
                 else
                 {
@@ -195,9 +198,19 @@ void echoToServer(int sockfd)
                 break;
             }
             case 3:
-            { // Update data
+            { // Read specific data
                 if (send_option_to_server((char *)"3", sockfd))
                 {
+                    string key;
+                    cout << "Introduceti numele secretului: ";
+                    getline(cin >> ws, key);
+                    cout << endl;
+                    send(sockfd, key.c_str(), sizeof(key.c_str()), 0);
+                    sleep(2);
+                    bzero(line, sizeof(line));
+                    recv(sockfd, &line, MAXLINE, 0);
+                    cout << key <<": " << line << endl;
+                    cout << endl;
                 }
                 else
                 {
@@ -206,7 +219,7 @@ void echoToServer(int sockfd)
                 break;
             }
             case 4:
-            { // Delete data
+            { // Update data
                 if (send_option_to_server((char *)"4", sockfd))
                 {
                 }
@@ -217,8 +230,19 @@ void echoToServer(int sockfd)
                 break;
             }
             case 5:
-            { // Exit
+            { // Delete data
                 if (send_option_to_server((char *)"5", sockfd))
+                {
+                }
+                else
+                {
+                    printf("[ERROR]\n");
+                }
+                break;
+            }
+            case 6:
+            { // Exit
+                if (send_option_to_server((char *)"6", sockfd))
                 {
                     connected = false;
                     close(sockfd);

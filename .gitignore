@@ -31,4 +31,6 @@
 *.out
 *.app
 
+src/.vscode
 .vscode
+build/

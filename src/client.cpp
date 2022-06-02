@@ -19,7 +19,7 @@
 /* 1. Porturtul TCP utilizat. */
 #define CLIENT_TCP_PORT 7979
 /* 2. Alte constante */
-#define MAXLINE 512 /* nr. max. octeti de citit cu recv() */
+#define MAXLINE 50000 /* nr. max. octeti de citit cu recv() */
 #define MAXHOSTNAME 100 /* nr. max. octeti nume host */
 using namespace std;
 /**
@@ -62,10 +62,11 @@ void echoToServer(int sockfd)
     bzero(line, sizeof(line));
     // send client type
     send(sockfd, "client", sizeof("client"), 0);
+    //bzero(line, sizeof(line));
     recv(sockfd, &line, MAXLINE, 0);
     cout << line << endl;
-    bzero(line, sizeof(line));
-
+    
+    
     while (1) 
     {   
         if (!connected)
@@ -86,12 +87,14 @@ void echoToServer(int sockfd)
                         string username, passwd;
                         cout << "Introduceti nume de utilizator: ";
                         getline(cin >> ws, username);
+                        send(sockfd, username.c_str(), strlen(username.c_str()), 0);
                         cout << "Introduceti parola: ";
                         getline(cin >> ws, passwd);
-
-                        string info = username + "|" + passwd;
-
-                        send(sockfd, info.c_str(), sizeof(info.c_str()), 0);
+                        send(sockfd, passwd.c_str(), strlen(passwd.c_str()), 0);
+                        //string info = username + "|" + passwd;
+                        printf("Dupa send: %s %s \n", username.c_str(), passwd.c_str());
+                        //send(sockfd, info.c_str(), sizeof(info.c_str()), 0);
+                        
                     }
                     else
                     {
@@ -109,10 +112,12 @@ void echoToServer(int sockfd)
                     
                     cout << "Introduceti nume de utilizator: ";
                     getline(cin >> ws, username);
+                    
                     cout << "Introduceti parola: ";
                     getline(cin >> ws, passwd);
+                    
                     string info = username + "|" + passwd;
-
+                    
                     send(sockfd, info.c_str(), sizeof(info.c_str()), 0);
 
                     // gets ok from server

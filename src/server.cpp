@@ -20,7 +20,7 @@
 using namespace std;
 
 #define SERV_TCP_PORT 7979
-#define MAXLINE 1024
+#define MAXLINE 50000
 #define MAXHOSTNAME 100
 #define NRTHREADS 100
 
@@ -28,6 +28,8 @@ pthread_mutex_t mutex;
 bool admin_connection = false;
 int connections = 0;
 using namespace std;
+int clientId = 1;
+
 
 /**
  *  COMPLETAT FUNCTII DE PARSARE FISIERE JSON, apoi stocate local
@@ -92,10 +94,52 @@ void* admin_handler(void* args)
     return nullptr;
 }
 //============================================================================//
+
+int create_client_id () {
+  /* Create some unique ID. e.g. UNIX timestamp... */
+  char ctsmp [12] ;  
+  time_t rawtime;
+  struct tm * timeinfo;
+  int uuid ; 
+  
+  time ( &rawtime );
+  timeinfo = localtime ( &rawtime );
+
+  strftime (ctsmp, 12, "%s", timeinfo) ;
+
+  uuid = atoi (ctsmp) ;
+  /* NOTICE: YOU NEED TO STORE THIS INFORMATION AT SERVER LEVEL !*/
+  return uuid ;
+}
+
 void create_user(char *username, char *passwd)
 {
+  FILE *users;
+  int id = create_client_id();
+ 
   printf("[DEBUG] Create User received: %s %s\n", username, passwd);
+  printf("NU EXISTA");
+  char * path = "/mnt/c/Users/depen/Desktop/pcd-proiect/src/clienti.txt";
+  printf("NU EXISTA");
+  if (access("clienti.txt", 0) == 0) {
+    printf("exista");
+  }
+
+  else {
+    users = fopen("clienti.txt", "w");
+    fprintf(users, "%d", id);
+    fprintf(users, "%s", ", ");
+    fprintf(users, "%s",username);
+    fprintf(users, "%s", ", ");
+    fprintf(users, "%s",passwd);
+    fprintf(users, "%s", "\n");
+    printf("NU EXISTA");
+    fclose(users);
+  }
+
   // TODO salvare in fisier + creare id?
+
+  
 }
 //----------------------------------------------------------------------------//
 void login_user(char *username, char *passwd)
@@ -104,15 +148,17 @@ void login_user(char *username, char *passwd)
   // TODO verificare din fisier
 }
 //----------------------------------------------------------------------------//
-void* client_handler(void* args) 
+void  *client_handler(void* args) 
 {
     int recv_msg_len, option, error; 
     int *sock_fd = (int *) args;
     char recv_msg[MAXLINE];
     bool login = false;
 
+    pthread_mutex_lock(&mutex);
     cout << "[INFO] Client connected!" << endl;
     char send_msg[MAXLINE] = "te-ai conectat la server!";
+     pthread_mutex_unlock(&mutex);
     //bzero(mssg, MAXLINE);
     error = send(*sock_fd, send_msg, MAXLINE, 0);
     cout << "send: " << error << endl;
@@ -127,20 +173,38 @@ void* client_handler(void* args)
       cout << "ERRNO: " << errno << " " << strerror(errno) << endl; 
       printf("[DEBUG] Message sent: ok\n");
       option = atoi(recv_msg);
+      bzero(recv_msg, sizeof(recv_msg));
       if (!login)
       {
         switch (option)
         {
           case 1:
           {
+            char username[100];
+            char passwd[100];
+            printf("In first case\n");
             bzero(recv_msg, sizeof(recv_msg));
             recv_msg_len = recv(*sock_fd, &recv_msg, MAXLINE, 0);
-            recv_msg[recv_msg_len] = '\0';
-            
+            //recv_msg[recv_msg_len] = '\0';
+            //printf("Printing data and size :%s %d \n", recv_msg, recv_msg_len);
+            for (int i=0; i<recv_msg_len; i++) {
+              username[i] = recv_msg[i];
+            }
+            printf("Printing data and size :%s \n", username);
+            bzero(recv_msg, sizeof(recv_msg));
+            recv_msg_len = recv(*sock_fd, &recv_msg, MAXLINE, 0);
+            //recv_msg[recv_msg_len] = '\0';
+            for (int i=0; i<recv_msg_len; i++) {
+              passwd[i] = recv_msg[i];
+            }
+             printf("Printing data :%s \n", passwd);
+
+
             // split message
-            char *username;
-            username = strtok(recv_msg, "|");
-            char *passwd = strtok(NULL, "\0");
+            // char *username;
+            // username = strtok(recv_msg, "|");
+            // char *passwd = strtok(NULL, "\0");
+            
             create_user(username, passwd);
             break;
           }
@@ -203,6 +267,7 @@ void* client_handler(void* args)
 
       
     }
+   
 } 
 //============================================================================//
 int main() 
@@ -286,11 +351,10 @@ int main()
       else if (strncmp(msg, "client\0", sizeof("client\0")) == 0)
       {
       cout << "aici\n";
-        pthread_create(&thds[connections], NULL, client_handler, 
+        pthread_create(&thds[connections++], NULL, client_handler, 
                         (void *) &new_sock_fd); 
       cout << "aici2\n";
-        pthread_join(thds[connections], NULL);
-        connections++;
+       
       }
       else
       {

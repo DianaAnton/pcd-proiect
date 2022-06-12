@@ -124,15 +124,15 @@ string get_user_data(char *key, int client_id)
   // close read file
   data_read.close();
   string key_str = key;
-  cout << "key_str " << key_str << endl; 
+  cout << "key_str " << key_str << endl;
 
   json data_array = data_json[to_string(client_id)];
   // cout << data_array.dump(4) << endl;
   bool found = false;
   string value;
 
-  // for (json::iterator it = data_array.begin(); it != data_array.end(); ++it) 
-  for (auto& el : data_array.items())
+  // for (json::iterator it = data_array.begin(); it != data_array.end(); ++it)
+  for (auto &el : data_array.items())
   {
     json el_json = el.value();
     cout << "el.value[key] " << el_json[key_str] << endl;
@@ -144,7 +144,6 @@ string get_user_data(char *key, int client_id)
       break;
     }
   }
-  
 
   if (found == true)
   {
@@ -154,7 +153,7 @@ string get_user_data(char *key, int client_id)
   {
     string msg = "[ERROR] No data found with key " + key_str + "\n";
     return msg;
-  }  
+  }
 }
 //----------------------------------------------------------------------------//
 bool add_user_data(char *key, char *value, int client_id)
@@ -205,32 +204,34 @@ bool login_user(char *username, char *passwd)
 }
 //----------------------------------------------------------------------------//
 
-string getAllData(int clientId) 
+string getAllData(int clientId)
 {
   ifstream dataFile("data.json");
   json date;
   dataFile >> date;
   dataFile.close();
-  
+  char file[1000];
   json temp;
   string date_;
 
-  if (date.contains(to_string(clientId))) {
-      for(json::iterator it = date.begin(); it != date.end(); ++it) {
-        //std::cout << it.key() << " : " << it.value() << "\n";
-        if (it.key() == to_string(clientId)) {
+  if (date.contains(to_string(clientId)))
+  {
+    for (json::iterator it = date.begin(); it != date.end(); ++it)
+    {
+      // std::cout << it.key() << " : " << it.value() << "\n";
+      if (it.key() == to_string(clientId))
+      {
 
-            temp = it.value();
-            //date_ = temp.dump();
-            // temp.dump(4);
-        }
+        temp = it.value();
+        // date_ = temp.dump();
+        //  temp.dump(4);
       }
+    }
   }
 
   
   return temp.dump();
-
-} 
+}
 //----------------------------------------------------------------------------//
 
 // void login_user_(char *username, char *passwd)
@@ -309,119 +310,119 @@ void *client_handler(void *args)
     {
       switch (option)
       {
-        case 1:
+      case 1:
+      {
+        char username[100];
+        char passwd[100];
+        bzero(recv_msg, sizeof(recv_msg));
+
+        // recv username
+        recv_msg_len = recv(*sock_fd, &recv_msg, MAXLINE, 0);
+        // store the username
+        for (int i = 0; i < recv_msg_len; i++)
         {
-          char username[100];
-          char passwd[100];
-          bzero(recv_msg, sizeof(recv_msg));
+          username[i] = recv_msg[i];
+        }
+        printf("[DEBUG] Username :%s \n", username);
+        // reset buffer
+        bzero(recv_msg, sizeof(recv_msg));
 
-          // recv username
-          recv_msg_len = recv(*sock_fd, &recv_msg, MAXLINE, 0);
-          // store the username
-          for (int i = 0; i < recv_msg_len; i++)
+        // recv passwd
+        recv_msg_len = recv(*sock_fd, &recv_msg, MAXLINE, 0);
+        // store the passwd
+        for (int i = 0; i < recv_msg_len; i++)
+        {
+          passwd[i] = recv_msg[i];
+        }
+        printf("[DEBUG] Paswd:%s \n", passwd);
+
+        // create child to execute function
+        pid_t child = fork();
+        if (child == 0)
+        { // child
+          create_user(username, passwd);
+          exit(0);
+        }
+        else if (child > 1)
+        { // parent wait for child
+          wait(NULL);
+        }
+        break;
+      }
+      case 2:
+      {
+        char username[100];
+        char passwd[100];
+        bzero(recv_msg, sizeof(recv_msg));
+
+        // recv username
+        recv_msg_len = recv(*sock_fd, &recv_msg, MAXLINE, 0);
+        // store the username
+        for (int i = 0; i < recv_msg_len; i++)
+        {
+          username[i] = recv_msg[i];
+        }
+        printf("[DEBUG] Username :%s \n", username);
+        // reset buffer
+        bzero(recv_msg, sizeof(recv_msg));
+
+        // recv passwd
+        recv_msg_len = recv(*sock_fd, &recv_msg, MAXLINE, 0);
+        // store the passwd
+        for (int i = 0; i < recv_msg_len; i++)
+        {
+          passwd[i] = recv_msg[i];
+        }
+        printf("[DEBUG] Paswd:%s \n", passwd);
+
+        int status;
+        // create child to execute function
+        pid_t child = fork();
+        if (child == 0)
+        { // child
+          if (login_user(username, passwd))
           {
-            username[i] = recv_msg[i];
-          }
-          printf("[DEBUG] Username :%s \n", username);
-          // reset buffer
-          bzero(recv_msg, sizeof(recv_msg));
-
-          // recv passwd
-          recv_msg_len = recv(*sock_fd, &recv_msg, MAXLINE, 0);
-          // store the passwd
-          for (int i = 0; i < recv_msg_len; i++)
-          {
-            passwd[i] = recv_msg[i];
-          }
-          printf("[DEBUG] Paswd:%s \n", passwd);
-
-          // create child to execute function
-          pid_t child = fork();
-          if (child == 0)
-          { // child
-            create_user(username, passwd);
+            cout << "[INFO] Logged in!\n";
+            send(*sock_fd, "ok", sizeof("ok"), 0);
+            // exit the child
             exit(0);
           }
-          else if (child > 1)
-          { // parent wait for child
-            wait(NULL);
-          }
-          break;
-        }
-        case 2:
-        {
-          char username[100];
-          char passwd[100];
-          bzero(recv_msg, sizeof(recv_msg));
-
-          // recv username
-          recv_msg_len = recv(*sock_fd, &recv_msg, MAXLINE, 0);
-          // store the username
-          for (int i = 0; i < recv_msg_len; i++)
+          else
           {
-            username[i] = recv_msg[i];
+            cout << "[ERROR] Credentials invalid!\n";
+            send(*sock_fd, "[ERROR] Credentials invalid!",
+                 sizeof("[ERROR] Credentials invalid!"), 0);
+            // exit the child
+            exit(1);
           }
-          printf("[DEBUG] Username :%s \n", username);
-          // reset buffer
-          bzero(recv_msg, sizeof(recv_msg));
+        }
+        else if (child > 1)
+        { // parent wait for child
+          wait(&status);
 
-          // recv passwd
-          recv_msg_len = recv(*sock_fd, &recv_msg, MAXLINE, 0);
-          // store the passwd
-          for (int i = 0; i < recv_msg_len; i++)
+          if (status == 0)
           {
-            passwd[i] = recv_msg[i];
-          }
-          printf("[DEBUG] Paswd:%s \n", passwd);
+            // open read file
+            ifstream clients_read("clients.json");
+            // read data from file
+            json clients_json;
+            clients_read >> clients_json;
 
-          int status;
-          // create child to execute function
-          pid_t child = fork();
-          if (child == 0)
-          { // child
-            if (login_user(username, passwd))
-            {
-              cout << "[INFO] Logged in!\n";
-              send(*sock_fd, "ok", sizeof("ok"), 0);
-              // exit the child
-              exit(0); 
-            }
-            else
-            {
-              cout << "[ERROR] Credentials invalid!\n";
-              send(*sock_fd, "[ERROR] Credentials invalid!", 
-                  sizeof("[ERROR] Credentials invalid!"), 0);
-              // exit the child
-              exit(1);
-            }
+            client_id = clients_json[username]["id"];
+            clients_read.close();
+            login = true;
           }
-          else if (child > 1)
-          { // parent wait for child
-            wait(&status);
-
-            if (status == 0)
-            {
-              // open read file
-              ifstream clients_read("clients.json");
-              // read data from file
-              json clients_json;
-              clients_read >> clients_json;
-
-              client_id = clients_json[username]["id"];
-              clients_read.close();
-              login = true;
-            }            
-          }
-          break;
         }
-        case 3:
-        {
-          client_id = 0;
-          send(*sock_fd, "Te-ai deconectat de la server!",
-              sizeof("Te-ai deconectat de la server!"), 0);
-          close(*sock_fd);
-          break;
-        }
+        break;
+      }
+      case 3:
+      {
+        client_id = 0;
+        send(*sock_fd, "Te-ai deconectat de la server!",
+             sizeof("Te-ai deconectat de la server!"), 0);
+        close(*sock_fd);
+        break;
+      }
       }
     }
     else
@@ -429,121 +430,124 @@ void *client_handler(void *args)
       // aici ar trebui sa se intample magie cu transmitere de fisiere bla bla
       switch (option)
       {
-        case 1:
-        { // add data
-          char key[100];
-          char value[100];
-          bzero(recv_msg, sizeof(recv_msg));
+      case 1:
+      { // add data
+        char key[100];
+        char value[100];
+        bzero(recv_msg, sizeof(recv_msg));
 
-          // recv username
-          recv_msg_len = recv(*sock_fd, &recv_msg, MAXLINE, 0);
-          // store the username
-          for (int i = 0; i < recv_msg_len; i++)
-          {
-            key[i] = recv_msg[i];
-          }
-          printf("[DEBUG] Key: %s \n", key);
-          // reset buffer
-          bzero(recv_msg, sizeof(recv_msg));
-
-          // recv passwd
-          recv_msg_len = recv(*sock_fd, &recv_msg, MAXLINE, 0);
-          // store the passwd
-          for (int i = 0; i < recv_msg_len; i++)
-          {
-            value[i] = recv_msg[i];
-          }
-          printf("[DEBUG] Value:%s \n", value);
-
-          // create child to execute function
-          int status;
-          pid_t child = fork();
-          if (child == 0)
-          { // child
-            if (add_user_data(key, value, client_id))
-            {
-              cout << "[INFO] Logged in!\n";
-              send(*sock_fd, "ok", sizeof("ok"), 0);
-              // exit the child
-              exit(0);
-            }
-            else
-            {
-              cout << "[ERROR] Credentials invalid!\n";
-              send(*sock_fd, "[ERROR] Credentials invalid!", 
-                  sizeof("[ERROR] Credentials invalid!"), 0);
-              // exit the child
-              exit(1);
-            }
-            
-          }
-          else if (child > 1)
-          { // parent wait for child
-            wait(&status);
-            if (status == 0)
-            {
-              cout << "[INFO] Data written" << endl;
-            }
-          }
-          break;
+        // recv username
+        recv_msg_len = recv(*sock_fd, &recv_msg, MAXLINE, 0);
+        // store the username
+        for (int i = 0; i < recv_msg_len; i++)
+        {
+          key[i] = recv_msg[i];
         }
-        case 2:
-        { // read all data
-          string date;
-          date = getAllData(client_id);
-          cout << date << endl;
-          //send(*sock_fd, date.c_str(), sizeof(date.c_str()), 0);
-          break;
-        }
-        case 3:
-        { // read specific data
-          char key[100];
-          bzero(recv_msg, sizeof(recv_msg));
+        printf("[DEBUG] Key: %s \n", key);
+        // reset buffer
+        bzero(recv_msg, sizeof(recv_msg));
 
-          // recv key
-          recv_msg_len = recv(*sock_fd, &recv_msg, MAXLINE, 0);
-          // store the key
-          for (int i = 0; i < recv_msg_len; i++)
+        // recv passwd
+        recv_msg_len = recv(*sock_fd, &recv_msg, MAXLINE, 0);
+        // store the passwd
+        for (int i = 0; i < recv_msg_len; i++)
+        {
+          value[i] = recv_msg[i];
+        }
+        printf("[DEBUG] Value:%s \n", value);
+
+        // create child to execute function
+        int status;
+        pid_t child = fork();
+        if (child == 0)
+        { // child
+          if (add_user_data(key, value, client_id))
           {
-            key[i] = recv_msg[i];
-          }
-          printf("[DEBUG] Key: %s \n", key);
-          // create child to execute function
-          int status;
-          pid_t child = fork();
-          if (child == 0)
-          { // child
-            string data = get_user_data(key, client_id);
-            cout << data << endl;
-            send(*sock_fd, data.c_str(), sizeof(data.c_str()), 0);
+            cout << "[INFO] Logged in!\n";
+            send(*sock_fd, "ok", sizeof("ok"), 0);
             // exit the child
-            exit(0);            
+            exit(0);
           }
-          else if (child > 1)
-          { // parent wait for child
-            wait(&status);
-            if (status == 0)
-            {
-              cout << "[INFO] Search done" << endl;
-            }
+          else
+          {
+            cout << "[ERROR] Credentials invalid!\n";
+            send(*sock_fd, "[ERROR] Credentials invalid!",
+                 sizeof("[ERROR] Credentials invalid!"), 0);
+            // exit the child
+            exit(1);
           }
-          break;
         }
-        case 4:
-        { // update data
+        else if (child > 1)
+        { // parent wait for child
+          wait(&status);
+          if (status == 0)
+          {
+            cout << "[INFO] Data written" << endl;
+          }
+        }
+        break;
+      }
+      case 2:
+      { // read all data
+        string date;
+        date = getAllData(client_id);
+        //cout << date << endl;
+        int n = date.length();
+        char dataToSend[n+1];
+        strcpy(dataToSend, date.c_str());
+        int s = write(*sock_fd, dataToSend, n+1);
+       // send(*sock_fd, dataToSend, sizeof(dataToSend), 0);
+        break;
+      }
+      case 3:
+      { // read specific data
+        char key[100];
+        bzero(recv_msg, sizeof(recv_msg));
 
-          break;
+        // recv key
+        recv_msg_len = recv(*sock_fd, &recv_msg, MAXLINE, 0);
+        // store the key
+        for (int i = 0; i < recv_msg_len; i++)
+        {
+          key[i] = recv_msg[i];
         }
-        case 5:
-        { // delete data
+        printf("[DEBUG] Key: %s \n", key);
+        // create child to execute function
+        int status;
+        pid_t child = fork();
+        if (child == 0)
+        { // child
+          string data = get_user_data(key, client_id);
+          cout << data << endl;
+          send(*sock_fd, data.c_str(), sizeof(data.c_str()), 0);
+          // exit the child
+          exit(0);
+        }
+        else if (child > 1)
+        { // parent wait for child
+          wait(&status);
+          if (status == 0)
+          {
+            cout << "[INFO] Search done" << endl;
+          }
+        }
+        break;
+      }
+      case 4:
+      { // update data
 
-          break;
-        }
-        case 6:
-        { // exit
-          client_id = 0;
-          break;
-        }
+        break;
+      }
+      case 5:
+      { // delete data
+
+        break;
+      }
+      case 6:
+      { // exit
+        client_id = 0;
+        break;
+      }
       }
     }
   }

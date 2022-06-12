@@ -170,11 +170,13 @@ void echoToServer(int sockfd)
                     string key, value;
                     cout << "Introduceti numele secretului: ";
                     getline(cin >> ws, key);
-                    send(sockfd, key.c_str(), sizeof(key.c_str()), 0);
+                    //send(sockfd, key.c_str(), sizeof(key.c_str()), 0);
+                    int n = write(sockfd, key.c_str(), key.length() + 1);
                     cout << "Introduceti valoarea: ";
                     getline(cin >> ws, value);
                     sleep(1);
-                    send(sockfd, value.c_str(), sizeof(value.c_str()), 0);
+                    //send(sockfd, value.c_str(), sizeof(value.c_str()), 0);
+                    int s = write(sockfd, value.c_str(), value.length() + 1);
                 }
                 else
                 {
@@ -186,10 +188,11 @@ void echoToServer(int sockfd)
             { // Read all data
                 if (send_option_to_server((char *)"2", sockfd))
                 {
-                    bzero(line, sizeof(line));
-                    recv(sockfd, line, MAXLINE, 0);
-                    line[size] = '\0';
-                    cout << line << endl;
+                    bzero(line, MAXLINE);
+                    //recv(sockfd, line, MAXLINE, 0);
+                    //line[size] =  '\0';
+                    int n = read(sockfd, line, MAXLINE);
+                    cout << "[INFO] Your data is gonna be printed --->" << line << endl;
                 }
                 else
                 {

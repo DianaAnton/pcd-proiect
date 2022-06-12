@@ -123,29 +123,28 @@ string get_user_data(char *key, int client_id)
   data_read >> data_json;
   // close read file
   data_read.close();
+  string key_str = key;
+  cout << "key_str " << key_str << endl; 
 
   json data_array = data_json[to_string(client_id)];
   // cout << data_array.dump(4) << endl;
   bool found = false;
-  string value, key_json;
+  string value;
 
   // for (json::iterator it = data_array.begin(); it != data_array.end(); ++it) 
   for (auto& el : data_array.items())
   {
-    for (auto& elem : el.value())
+    json el_json = el.value();
+    cout << "el.value[key] " << el_json[key_str] << endl;
+    if (el_json[key_str] != nullptr)
     {
-      key_json = elem.key();
-      if (strcmp(key_json.c_str(), key) == 0)
-      { // found the data
-        found = true;
-      
-        value = el.value()[key];
-        cout << "[DEBUG] FOUND key: " << key_json << ": " << value << endl;
-        break;
-      }
+      value = el_json[key_str];
+      found = true;
+      cout << "[DEBUG] FOUND key: " << key_str << ": " << value << endl;
+      break;
     }
-    std::cout << el.key() << " : " << el.value() << "\n";
   }
+  
 
   if (found == true)
   {
@@ -153,7 +152,7 @@ string get_user_data(char *key, int client_id)
   }
   else
   {
-    string msg = "[ERROR] No data found with key " + key_json + "\n";
+    string msg = "[ERROR] No data found with key " + key_str + "\n";
     return msg;
   }  
 }
@@ -173,12 +172,13 @@ bool add_user_data(char *key, char *value, int client_id)
   json details;
   details[key] = value;
   // add details to object
-  data_json[to_string(client_id)] += details.dump(4);
+  data_json[to_string(client_id)] += details;
   cout << data_json.dump(4) << endl;
 
   // open write file
   std::ofstream data_write("data.json");
-  data_write << std::setw(4) << data_json << std::endl;
+  // data_write << std::setw(4) << data_json << std::endl;
+  data_write << data_json << std::endl;
   // close write file
   data_write.close();
 }
@@ -222,13 +222,13 @@ string getAllData(int clientId)
 
             temp = it.value();
             //date_ = temp.dump();
-            temp.dump(4);
+            // temp.dump(4);
         }
       }
   }
 
   
-  return temp.dump(4);
+  return temp.dump();
 
 } 
 //----------------------------------------------------------------------------//
@@ -269,7 +269,8 @@ void create_user(char *username, char *passwd)
 
   // open write file
   std::ofstream client_write("clients.json");
-  client_write << std::setw(4) << clients_json << std::endl;
+  // client_write << std::setw(4) << clients_json << std::endl;
+  client_write << clients_json << std::endl;
   // close write file
   client_write.close();
 }

@@ -236,6 +236,7 @@ void echoToServer(int sockfd)
             { // Delete data
                 if (send_option_to_server((char *)"5", sockfd))
                 {
+                    printf("[INFO] You are going to delete all data....\n");
                 }
                 else
                 {

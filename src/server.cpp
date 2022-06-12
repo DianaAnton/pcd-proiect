@@ -229,9 +229,59 @@ string getAllData(int clientId)
     }
   }
 
-  
   return temp.dump();
 }
+
+void deleteAllData(int clientId)
+{
+  ifstream dataFile("data.json");
+  json date;
+  dataFile >> date;
+  dataFile.close();
+  string id = to_string(clientId);
+  if (date.contains(to_string(clientId)))
+  {
+    date.erase(to_string(clientId));
+  }
+
+  std::ofstream data_write("data.json");
+
+  data_write << date.dump(4) << std::endl;
+  // close write file
+  data_write.close();
+}
+
+void updateData(int clientId, char *key)
+{
+
+  ifstream dataFile("data.json");
+  json date;
+  dataFile >> date;
+  dataFile.close();
+  string id = to_string(clientId);
+  json temp;
+
+  if (date.contains(to_string(clientId)))
+  {
+    for (json::iterator it = date.begin(); it != date.end(); ++it)
+    {
+      if (it.key() == to_string(clientId))
+      {
+        temp = it.value();
+      }
+    }
+  }
+
+  for (auto &el : temp.items()) {
+    cout << el << endl;
+
+  }
+
+
+
+
+}
+
 //----------------------------------------------------------------------------//
 
 // void login_user_(char *username, char *passwd)
@@ -491,12 +541,12 @@ void *client_handler(void *args)
       { // read all data
         string date;
         date = getAllData(client_id);
-        //cout << date << endl;
+        // cout << date << endl;
         int n = date.length();
-        char dataToSend[n+1];
+        char dataToSend[n + 1];
         strcpy(dataToSend, date.c_str());
-        int s = write(*sock_fd, dataToSend, n+1);
-       // send(*sock_fd, dataToSend, sizeof(dataToSend), 0);
+        int s = write(*sock_fd, dataToSend, n + 1);
+        // send(*sock_fd, dataToSend, sizeof(dataToSend), 0);
         break;
       }
       case 3:
@@ -535,12 +585,12 @@ void *client_handler(void *args)
       }
       case 4:
       { // update data
-
+        updateData(client_id, "fb");
         break;
       }
       case 5:
       { // delete data
-
+        deleteAllData(client_id);
         break;
       }
       case 6:

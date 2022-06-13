@@ -31,12 +31,6 @@ def register(sockfd, username, password):
     msg = recv_msg(sockfd)
 
     return msg
-    # try:
-    #     msg = recv_msg(sock)
-    #     print('Received date {}'.format(msg))
-    # except ConnectionError:
-    #     print('Recv msg error')
-    #     sys.exit(1)
 
 def login(sockfd, username, password):
     
@@ -44,18 +38,6 @@ def login(sockfd, username, password):
     time.sleep(0.3)
     send_msg(sockfd, password)
     time.sleep(3)
-
-    # try:
-    #     msg = recv_msg(sock)
-    #     print('Received date in login {}'.format(msg))
-    #     send_msg(sockfd, "2")
-    # except ConnectionError:
-    #     print('Recv msg error')
-    #     sys.exit(1)
-    
-    
-
-
 
 if __name__ == '__main__' :
     try:
@@ -115,6 +97,7 @@ if __name__ == '__main__' :
                     print(ex)
 
         elif connected == True:
+
             print("1. Adaugare date noi\n")
             print("2. Vizualizare date\n")
             print("3. Cauta o valoare specifica\n")
@@ -146,41 +129,21 @@ if __name__ == '__main__' :
                     if recv:
                         msg = recv_msg(sock)
                         msg = recv_msg(sock)
-                        
                         print("Print your data ----> {}".format(msg))
                 except Exception as ex:
                     print(ex)
-            
-
-
-
-
-                
-
-
-
-            
-                
-        
-
-    # while True:
-    #     try:
-    #         username = "test"
-    #         password = "123"
-    #         option = "2"
-    #         msg = recv_msg(sock)
-    #         print('Received date in main {}'.format(msg))
-    #         if msg == "ok":
-    #             login(sock, option, username, password)
-    #         else:
-    #             break
-
-    #     except ConnectionError:
-    #         print('Recv msg error')
-    #         sys.exit(1)
-
-    #register(sock, "1", "dinpython", "dinpython")
-    
-    #login(sock, option, username, password)
-    
-    #send_msg(sock, option)
+            elif optiune == "3":
+                try:
+                    send_msg(sock, "3")
+                    recv = recv_msg(sock)
+                    print("in search specific.. {}".format(recv))
+                    if recv:
+                       secret = input("Introduceti numele secretului cautatat: \n")
+                       send_msg(sock, secret)
+                       time.sleep(2)
+                      
+                       msg = recv_msg(sock)
+                       print("Secretul cautat este: {}".format(msg[3:]))
+                except Exception as ex:
+                    print(ex)
+                    

@@ -25,6 +25,7 @@ using json = nlohmann::json;
 #define MAXLINE 50000
 #define MAXHOSTNAME 100
 #define NRTHREADS 100
+pthread_mutex_t admin_mutex;
 
 // pthread_mutex_t mutex;
 // bool admin_connection = false;
@@ -63,11 +64,13 @@ using namespace std;
 //============================================================================//
 void *admin_handler(void *args)
 {
+  pthread_mutex_lock(&admin_mutex);
   int recv_msg_len, option, error;
   int *sock_fd = (int *)args;
   char recv_msg[MAXLINE];
   bool login = false;
-  int client_id = 0
+  int client_id = 0;
+  int admin_id = 0;
   // pthread_mutex_lock(&mutex);
   cout << "[INFO] Admin connected!" << endl;
   char send_msg[MAXLINE] = "Te-ai conectat la server!";
@@ -192,7 +195,7 @@ void *admin_handler(void *args)
             json clients_json;
             clients_read >> clients_json;
 
-            client_id = clients_json[username]["id"];
+            admin_id = clients_json[username]["id"];
             clients_read.close();
             login = true;
           }
@@ -201,7 +204,7 @@ void *admin_handler(void *args)
       }
       case 3:
       {
-        client_id = 0;
+        admin_id = 0;
         send(*sock_fd, "Te-ai deconectat de la server!",
              sizeof("Te-ai deconectat de la server!"), 0);
         close(*sock_fd);
@@ -335,6 +338,7 @@ void *admin_handler(void *args)
       }
     }
   }
+  pthread_mutex_unlock(&admin_mutex);
 }
 //----------------------------------------------------------------------------//
 void *client_handler(void *args)
@@ -401,7 +405,18 @@ void *client_handler(void *args)
         pid_t child = fork();
         if (child == 0)
         { // child
-          create_user(username, passwd);
+          string msg = create_user(username, passwd);
+          char msg_char[100];
+          strcpy(msg_char, msg.c_str());
+          if (strncmp(msg_char, "ok", sizeof("ok")) == 0)
+          {
+            cout << "[INFO] New user created! Username: " << username << endl;
+          }
+          else
+          {
+            cout << msg;
+          }
+          send(*sock_fd, msg_char, sizeof(msg_char), 0);
           exit(0);
         }
         else if (child > 1)
@@ -605,6 +620,46 @@ void *client_handler(void *args)
         break;
       }
       case 6:
+      { // delete specific pair
+        char key[100];
+        bzero(recv_msg, sizeof(recv_msg));
+
+        // recv key
+        recv_msg_len = recv(*sock_fd, &recv_msg, MAXLINE, 0);
+        // store the key
+        for (int i = 0; i < recv_msg_len; i++)
+        {
+          key[i] = recv_msg[i];
+        }
+        printf("[DEBUG] Delete key: %s \n", key);
+        // create child to execute function
+        int status;
+        pid_t child = fork();
+        if (child == 0)
+        { // child
+          string data = delete_specific_data(key, client_id);
+          cout << data << endl;
+          write(*sock_fd, data.c_str(), sizeof(data.c_str()));
+          // exit the child
+          exit(0);
+        }
+        else if (child > 1)
+        { // parent wait for child
+          wait(&status);
+          if (status == 0)
+          {
+            cout << "[INFO] Search done" << endl;
+          }
+        }
+        break;
+      }
+      case 7:
+      { // log out
+        client_id = 0;
+        login = false;
+        break;
+      }
+      case 8:
       { // exit
         client_id = 0;
         break;

@@ -21,7 +21,8 @@ using namespace std;
 // for convenience
 using json = nlohmann::json;
 
-#define SERV_TCP_PORT 7979
+#define UNIX_PORT 7979
+#define INET_PORT 7980
 #define MAXLINE 50000
 #define MAXHOSTNAME 100
 #define NRTHREADS 100
@@ -62,11 +63,197 @@ using namespace std;
 //    ]
 //  }
 //============================================================================//
+//----------------------------------------------------------------------------//
+void *create_unix()
+{
+  struct sockaddr_in cli_addr, serv_addr;
+  int msg_len, sockfd, new_sockfd, connections;
+  struct hostent *he;
+  char msg[MAXLINE];
+  pthread_t thds[NRTHREADS];
+  pthread_t unix_thread, inet_thread;
+  char *NumeServer = (char *)"pcd proiect"; // numele serverului luat din argv[0]
+  char NumeHostServer[MAXHOSTNAME];
+
+  gethostname(NumeHostServer, MAXHOSTNAME);
+  printf("\n----TCPServer startat pe hostul: %s\n", NumeHostServer);
+
+  he = gethostbyname(NumeHostServer); // aflam adresa de IP server/ probabil 127.0.0.1
+
+  bcopy(he->h_addr, &(serv_addr.sin_addr), he->h_length);
+  printf(" \t(TCPServer INET ADDRESS (IP) este: %s )\n",
+         inet_ntoa(serv_addr.sin_addr)); // conversie adresa binarea in ASCII (ex. "127.0.0.1")
+
+  if ((sockfd = socket(AF_UNIX, SOCK_STREAM, 0)) < 0)
+    fprintf(stderr, "EROARE server: nu pot sa deschid stream socket \n");
+
+  int check = 1;
+  if (setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR, &check, sizeof(int)) < 0)
+    fprintf(stderr, "setsockopt(SO_REUSEADDR) failed");
+
+  bzero((char *)&serv_addr, sizeof(serv_addr));
+  serv_addr.sin_family = AF_UNIX;
+  serv_addr.sin_addr.s_addr = htonl(INADDR_ANY);
+  serv_addr.sin_port = htons(UNIX_PORT);
+
+  if (bind(sockfd, (struct sockaddr *)&serv_addr, sizeof(serv_addr)) < 0)
+    fprintf(stderr, "EROARE server: nu pot sa asignez un nume adresei locale \n");
+
+  printf("---TCPServer-UNIX %s: ++++ astept conexiune clienti pe PORT: %d++++\n\n", NumeServer, ntohs(serv_addr.sin_port));
+
+  if (listen(sockfd, 100) < 0)
+  {
+    fprintf(stderr, "Eroare!");
+    exit(0);
+  }
+
+  while (1)
+  {
+    bzero((char *)&cli_addr, sizeof(cli_addr));
+    socklen_t cli_addr_size = sizeof(cli_addr);
+    new_sockfd = accept(sockfd, (struct sockaddr *)&cli_addr, &cli_addr_size);
+
+    if (new_sockfd < 0)
+    {
+      fprintf(stderr, "[EROARE SERVER]: accept()\n");
+      exit(1);
+    }
+    msg_len = recv(new_sockfd, &msg, MAXLINE, 0);
+    printf("[INFO] Client Type: %s\n", msg);
+    msg[msg_len] = '\0';
+
+    if (strncmp(msg, "admin\0", sizeof("admin\0")) == 0)
+    { // start thread cu functie admin
+      if (admin_connection == false)
+      { // daca nu mai e conectat unul deja
+        pthread_create(&thds[connections], NULL, admin_handler,
+                       (void *)&new_sockfd);
+        connections++;
+      }
+      else
+      { // daca e conectat, send error to client
+        char temp_msg[100] = "[ERROR] Un admin e deja conectat.\n";
+        send(new_sockfd, temp_msg, sizeof(temp_msg), 0);
+        close(new_sockfd);
+      }
+    }
+    else if (strncmp(msg, "client\0", sizeof("client\0")) == 0)
+    {
+      // cout << "aici\n";
+      pthread_create(&thds[connections++], NULL, client_handler,
+                     (void *)&new_sockfd);
+      // cout << "aici2\n";
+    }
+    else
+    {
+      printf("[ERROR] Unkown connection. Closing...\n");
+      close(new_sockfd);
+    }
+  }
+  close(sockfd);
+  close(new_sockfd);
+}
+//----------------------------------------------------------------------------//
+void *create_inet()
+{
+  struct sockaddr_in cli_addr, serv_addr;
+  int msg_len, sockfd, new_sockfd, connections;
+  struct hostent *he;
+  char msg[MAXLINE];
+  pthread_t thds[NRTHREADS];
+  pthread_t unix_thread, inet_thread;
+  char *NumeServer = (char *)"pcd proiect"; // numele serverului luat din argv[0]
+  char NumeHostServer[MAXHOSTNAME];
+
+  // pthread_mutex_init(&mutex, NULL);
+
+  gethostname(NumeHostServer, MAXHOSTNAME);
+  printf("\n----TCPServer startat pe hostul: %s\n", NumeHostServer);
+
+  he = gethostbyname(NumeHostServer); // aflam adresa de IP server/ probabil 127.0.0.1
+
+  bcopy(he->h_addr, &(serv_addr.sin_addr), he->h_length);
+  printf(" \t(TCPServer INET ADDRESS (IP) este: %s )\n",
+         inet_ntoa(serv_addr.sin_addr)); // conversie adresa binarea in ASCII (ex. "127.0.0.1")
+  /* numele procesului server luat de pe linia de comanda */
+
+  if ((sockfd = socket(AF_INET, SOCK_STREAM, 0)) < 0)
+    fprintf(stderr, "EROARE server: nu pot sa deschid stream socket \n");
+
+  int check = 1;
+  if (setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR, &check, sizeof(int)) < 0)
+    fprintf(stderr, "setsockopt(SO_REUSEADDR) failed");
+
+  bzero((char *)&serv_addr, sizeof(serv_addr));
+  serv_addr.sin_family = AF_INET;
+  serv_addr.sin_addr.s_addr = htonl(INADDR_ANY);
+  serv_addr.sin_port = htons(INET_PORT);
+
+  if (bind(sockfd, (struct sockaddr *)&serv_addr, sizeof(serv_addr)) < 0)
+    fprintf(stderr, "EROARE server: nu pot sa asignez un nume adresei locale \n");
+
+  printf("---TCPServer %s: ++++ astept conexiune clienti pe PORT: %d++++\n\n", NumeServer, ntohs(serv_addr.sin_port));
+
+  if (listen(sockfd, 100) < 0)
+  {
+    fprintf(stderr, "Eroare!");
+    exit(0);
+  }
+
+  while (1)
+  {
+    bzero((char *)&cli_addr, sizeof(cli_addr));
+    socklen_t cli_addr_size = sizeof(cli_addr);
+    new_sockfd = accept(sockfd, (struct sockaddr *)&cli_addr, &cli_addr_size);
+
+    if (new_sockfd < 0)
+    {
+      fprintf(stderr, "[EROARE SERVER]: accept()\n");
+      exit(1);
+    }
+    msg_len = recv(new_sockfd, &msg, MAXLINE, 0);
+    printf("[INFO] Client Type: %s\n", msg);
+    msg[msg_len] = '\0';
+
+    if (strncmp(msg, "admin\0", sizeof("admin\0")) == 0)
+    { // start thread cu functie admin
+      if (admin_connection == false)
+      { // daca nu mai e conectat unul deja
+        pthread_create(&thds[connections], NULL, admin_handler,
+                       (void *)&new_sockfd);
+        connections++;
+      }
+      else
+      { // daca e conectat, send error to client
+        char temp_msg[100] = "[ERROR] Un admin e deja conectat.\n";
+        send(new_sockfd, temp_msg, sizeof(temp_msg), 0);
+        close(new_sockfd);
+      }
+    }
+    else if (strncmp(msg, "client\0", sizeof("client\0")) == 0)
+    {
+      // cout << "aici\n";
+      pthread_create(&thds[connections++], NULL, client_handler,
+                     (void *)&new_sockfd);
+      // cout << "aici2\n";
+    }
+    else
+    {
+      printf("[ERROR] Unkown connection. Closing...\n");
+      close(new_sockfd);
+    }
+  }
+  close(sockfd);
+  close(new_sockfd);
+}
+//----------------------------------------------------------------------------//
+
+//----------------------------------------------------------------------------//
 void *admin_handler(void *args)
 {
   pthread_mutex_lock(&admin_mutex);
   int recv_msg_len, option, error;
-  int *sock_fd = (int *)args;
+  int *sockfd = (int *)args;
   char recv_msg[MAXLINE];
   bool login = false;
   int client_id = 0;
@@ -76,15 +263,15 @@ void *admin_handler(void *args)
   char send_msg[MAXLINE] = "Te-ai conectat la server!";
   // pthread_mutex_unlock(&mutex);
   // bzero(mssg, MAXLINE);
-  error = send(*sock_fd, send_msg, MAXLINE, 0);
+  error = send(*sockfd, send_msg, MAXLINE, 0);
   cout << "[DEBUG] Send: " << error << endl;
   cout << "[ERROR] ERRNO: " << errno << " " << strerror(errno) << endl;
 
   while (1)
   { // recv option not connected
-    recv_msg_len = recv(*sock_fd, &recv_msg, MAXLINE, 0);
+    recv_msg_len = recv(*sockfd, &recv_msg, MAXLINE, 0);
     printf("[DEBUG] Message received: %s\n", recv_msg);
-    error = send(*sock_fd, "ok", sizeof("ok"), 0);
+    error = send(*sockfd, "ok", sizeof("ok"), 0);
     // cout << "[DEBUG] Send: " << error << endl;
     cout << "[ERROR] ERRNO: " << errno << " " << strerror(errno) << endl;
     // printf("[DEBUG] Message sent: %s\n");
@@ -96,247 +283,189 @@ void *admin_handler(void *args)
     if (login == false)
     {
       switch (option)
-      {
-      case 1:
-      {
-        char username[100];
-        char passwd[100];
-        bzero(recv_msg, sizeof(recv_msg));
-
-        // recv username
-        recv_msg_len = recv(*sock_fd, &recv_msg, MAXLINE, 0);
-        // store the username
-        for (int i = 0; i < recv_msg_len; i++)
+      { //-----------------------Switch not logged in ------------------------//
+        case 1:
         {
-          username[i] = recv_msg[i];
-        }
-        printf("[DEBUG] Username :%s \n", username);
-        // reset buffer
-        bzero(recv_msg, sizeof(recv_msg));
+          char username[100];
+          char passwd[100];
+          bzero(recv_msg, sizeof(recv_msg));
 
-        // recv passwd
-        recv_msg_len = recv(*sock_fd, &recv_msg, MAXLINE, 0);
-        // store the passwd
-        for (int i = 0; i < recv_msg_len; i++)
-        {
-          passwd[i] = recv_msg[i];
-        }
-        printf("[DEBUG] Paswd:%s \n", passwd);
-
-        // create child to execute function
-        pid_t child = fork();
-        if (child == 0)
-        { // child
-          create_user(username, passwd);
-          exit(0);
-        }
-        else if (child > 1)
-        { // parent wait for child
-          wait(NULL);
-        }
-        break;
-      }
-      case 2:
-      {
-        char username[100];
-        char passwd[100];
-        bzero(recv_msg, sizeof(recv_msg));
-
-        // recv username
-        recv_msg_len = recv(*sock_fd, &recv_msg, MAXLINE, 0);
-        // store the username
-        for (int i = 0; i < recv_msg_len; i++)
-        {
-          username[i] = recv_msg[i];
-        }
-        printf("[DEBUG] Username :%s \n", username);
-        // reset buffer
-        bzero(recv_msg, sizeof(recv_msg));
-
-        // recv passwd
-        recv_msg_len = recv(*sock_fd, &recv_msg, MAXLINE, 0);
-        // store the passwd
-        for (int i = 0; i < recv_msg_len; i++)
-        {
-          passwd[i] = recv_msg[i];
-        }
-        printf("[DEBUG] Paswd:%s \n", passwd);
-
-        int status;
-        // create child to execute function
-        pid_t child = fork();
-        if (child == 0)
-        { // child
-          if (login_user(username, passwd))
+          // recv username
+          recv_msg_len = recv(*sockfd, &recv_msg, MAXLINE, 0);
+          // store the username
+          for (int i = 0; i < recv_msg_len; i++)
           {
-            cout << "[INFO] Logged in!\n";
-            send(*sock_fd, "ok", sizeof("ok"), 0);
-            // exit the child
+            username[i] = recv_msg[i];
+          }
+          printf("[DEBUG] Username :%s \n", username);
+          // reset buffer
+          bzero(recv_msg, sizeof(recv_msg));
+
+          // recv passwd
+          recv_msg_len = recv(*sockfd, &recv_msg, MAXLINE, 0);
+          // store the passwd
+          for (int i = 0; i < recv_msg_len; i++)
+          {
+            passwd[i] = recv_msg[i];
+          }
+          printf("[DEBUG] Paswd:%s \n", passwd);
+
+          // create child to execute function
+          pid_t child = fork();
+          if (child == 0)
+          { // child
+            create_user(username, passwd);
             exit(0);
           }
-          else
-          {
-            cout << "[ERROR] Credentials invalid!\n";
-            send(*sock_fd, "[ERROR] Credentials invalid!",
-                 sizeof("[ERROR] Credentials invalid!"), 0);
-            // exit the child
-            exit(1);
+          else if (child > 1)
+          { // parent wait for child
+            wait(NULL);
           }
+          break;
         }
-        else if (child > 1)
-        { // parent wait for child
-          wait(&status);
+        case 2:
+        {
+          char username[100];
+          char passwd[100];
+          bzero(recv_msg, sizeof(recv_msg));
 
-          if (status == 0)
+          // recv username
+          recv_msg_len = recv(*sockfd, &recv_msg, MAXLINE, 0);
+          // store the username
+          for (int i = 0; i < recv_msg_len; i++)
           {
-            // open read file
-            ifstream clients_read("clients.json");
-            // read data from file
-            json clients_json;
-            clients_read >> clients_json;
-
-            admin_id = clients_json[username]["id"];
-            clients_read.close();
-            login = true;
+            username[i] = recv_msg[i];
           }
+          printf("[DEBUG] Username :%s \n", username);
+          // reset buffer
+          bzero(recv_msg, sizeof(recv_msg));
+
+          // recv passwd
+          recv_msg_len = recv(*sockfd, &recv_msg, MAXLINE, 0);
+          // store the passwd
+          for (int i = 0; i < recv_msg_len; i++)
+          {
+            passwd[i] = recv_msg[i];
+          }
+          printf("[DEBUG] Paswd:%s \n", passwd);
+
+          int status;
+          // create child to execute function
+          pid_t child = fork();
+          if (child == 0)
+          { // child
+            if (login_user(username, passwd))
+            {
+              cout << "[INFO] Logged in!\n";
+              send(*sockfd, "ok", sizeof("ok"), 0);
+              // exit the child
+              exit(0);
+            }
+            else
+            {
+              cout << "[ERROR] Credentials invalid!\n";
+              send(*sockfd, "[ERROR] Credentials invalid!",
+                  sizeof("[ERROR] Credentials invalid!"), 0);
+              // exit the child
+              exit(1);
+            }
+          }
+          else if (child > 1)
+          { // parent wait for child
+            wait(&status);
+
+            if (status == 0)
+            {
+              // open read file
+              ifstream clients_read("clients.json");
+              // read data from file
+              json clients_json;
+              clients_read >> clients_json;
+
+              admin_id = clients_json[username]["id"];
+              clients_read.close();
+              login = true;
+            }
+          }
+          break;
         }
-        break;
-      }
-      case 3:
-      {
-        admin_id = 0;
-        send(*sock_fd, "Te-ai deconectat de la server!",
-             sizeof("Te-ai deconectat de la server!"), 0);
-        close(*sock_fd);
-        break;
-      }
-      }
+        case 3:
+        {
+          admin_id = 0;
+          send(*sockfd, "Te-ai deconectat de la server!",
+              sizeof("Te-ai deconectat de la server!"), 0);
+          sleep(1);
+          close(*sockfd);
+          break;
+        }
+      }//-----------------------Switch not logged in -------------------------//
     }
     else
-    {
-      // aici ar trebui sa se intample magie cu transmitere de fisiere bla bla
+    {//-------------------------Logged in ------------------------------------//
+      // select if ops for admin or client
+      bzero(recv_msg, sizeof(recv_msg));
+      recv_msg_len = recv(*sockfd, &recv_msg, MAXLINE, 0);
+      printf("[DEBUG] Message received: %s\n", recv_msg);
+      error = send(*sockfd, "ok", sizeof("ok"), 0);
+      cout << "[ERROR] ERRNO: " << errno << " " << strerror(errno) << endl;
+
+      // convert to int
+      option = atoi(recv_msg);
+      bzero(recv_msg, sizeof(recv_msg));
+
       switch (option)
       {
-      case 1:
-      { // add data
-        char key[100];
-        char value[100];
-        bzero(recv_msg, sizeof(recv_msg));
+        case 1:
+        { // For admin
+          // call the common menu for the admin with admin id
+          server_admin_menu(sockfd, admin_id);
+          break;
+        }
+        case 2:
+        { // For client
+          char username[100];
+          bzero(recv_msg, sizeof(recv_msg));
 
-        // recv username
-        recv_msg_len = recv(*sock_fd, &recv_msg, MAXLINE, 0);
-        // store the username
-        for (int i = 0; i < recv_msg_len; i++)
-        {
-          key[i] = recv_msg[i];
-        }
-        printf("[DEBUG] Key: %s \n", key);
-        // reset buffer
-        bzero(recv_msg, sizeof(recv_msg));
+          // recv username
+          recv_msg_len = recv(*sockfd, &recv_msg, MAXLINE, 0);
+          // store the username
+          for (int i = 0; i < recv_msg_len; i++)
+          {
+            username[i] = recv_msg[i];
+          }
+          printf("[DEBUG] Username :%s \n", username);
+          // reset buffer
+          bzero(recv_msg, sizeof(recv_msg));
+          // open read file
+          ifstream clients_read("clients.json");
+          // read data from file
+          json clients_json;
+          clients_read >> clients_json;
 
-        // recv passwd
-        recv_msg_len = recv(*sock_fd, &recv_msg, MAXLINE, 0);
-        // store the passwd
-        for (int i = 0; i < recv_msg_len; i++)
-        {
-          value[i] = recv_msg[i];
+          client_id = clients_json[username]["id"];
+          clients_read.close();
+          // call the common menu for the admin with client id
+          server_admin_menu(sockfd, client_id);
+          break;
         }
-        printf("[DEBUG] Value:%s \n", value);
-
-        // create child to execute function
-        int status;
-        pid_t child = fork();
-        if (child == 0)
-        { // child
-          if (add_user_data(key, value, client_id))
-          {
-            cout << "[INFO] Logged in!\n";
-            send(*sock_fd, "ok", sizeof("ok"), 0);
-            // exit the child
-            exit(0);
-          }
-          else
-          {
-            cout << "[ERROR] Credentials invalid!\n";
-            send(*sock_fd, "[ERROR] Credentials invalid!",
-                 sizeof("[ERROR] Credentials invalid!"), 0);
-            // exit the child
-            exit(1);
-          }
+        case 3:
+        { // Log out
+          admin_id = 0;
+          client_id = 0;
+          login = false;
+          break;
         }
-        else if (child > 1)
-        { // parent wait for child
-          wait(&status);
-          if (status == 0)
-          {
-            cout << "[INFO] Data written" << endl;
-          }
+        case 4:
+        { // Exit
+          admin_id = 0;
+          send(*sockfd, "Te-ai deconectat de la server!",
+              sizeof("Te-ai deconectat de la server!"), 0);
+          sleep(1);
+          close(*sockfd);
+          break;
         }
-        break;
       }
-      case 2:
-      { // read all data
-        string date;
-        date = getAllData(client_id);
-        // cout << date << endl;
-        int n = date.length();
-        char dataToSend[n + 1];
-        strcpy(dataToSend, date.c_str());
-        int s = write(*sock_fd, dataToSend, n + 1);
-        // send(*sock_fd, dataToSend, sizeof(dataToSend), 0);
-        break;
-      }
-      case 3:
-      { // read specific data
-        char key[100];
-        bzero(recv_msg, sizeof(recv_msg));
-
-        // recv key
-        recv_msg_len = recv(*sock_fd, &recv_msg, MAXLINE, 0);
-        // store the key
-        for (int i = 0; i < recv_msg_len; i++)
-        {
-          key[i] = recv_msg[i];
-        }
-        printf("[DEBUG] Key: %s \n", key);
-        // create child to execute function
-        int status;
-        pid_t child = fork();
-        if (child == 0)
-        { // child
-          string data = get_user_data(key, client_id);
-          cout << data << endl;
-          send(*sock_fd, data.c_str(), sizeof(data.c_str()), 0);
-          // exit the child
-          exit(0);
-        }
-        else if (child > 1)
-        { // parent wait for child
-          wait(&status);
-          if (status == 0)
-          {
-            cout << "[INFO] Search done" << endl;
-          }
-        }
-        break;
-      }
-      case 4:
-      { // update data
-        updateData(client_id, "fb");
-        break;
-      }
-      case 5:
-      { // delete data
-        deleteAllData(client_id);
-        break;
-      }
-      case 6:
-      { // exit
-        client_id = 0;
-        break;
-      }
-      }
-    }
+    }//-------------------------Logged in ------------------------------------//
   }
   pthread_mutex_unlock(&admin_mutex);
 }
@@ -344,7 +473,7 @@ void *admin_handler(void *args)
 void *client_handler(void *args)
 {
   int recv_msg_len, option, error;
-  int *sock_fd = (int *)args;
+  int *sockfd = (int *)args;
   char recv_msg[MAXLINE];
   bool login = false;
   int client_id = 0;
@@ -354,15 +483,16 @@ void *client_handler(void *args)
   char send_msg[MAXLINE] = "Te-ai conectat la server!";
   // pthread_mutex_unlock(&mutex);
   // bzero(mssg, MAXLINE);
-  error = send(*sock_fd, send_msg, MAXLINE, 0);
+  error = send(*sockfd, send_msg, MAXLINE, 0);
   cout << "[DEBUG] Send: " << error << endl;
   cout << "[ERROR] ERRNO: " << errno << " " << strerror(errno) << endl;
 
   while (1)
   { // recv option not connected
-    recv_msg_len = recv(*sock_fd, &recv_msg, MAXLINE, 0);
+    bzero(&recv_msg, sizeof(recv_msg));
+    recv_msg_len = recv(*sockfd, &recv_msg, MAXLINE, 0);
     printf("[DEBUG] Message received: %s\n", recv_msg);
-    error = send(*sock_fd, "ok", sizeof("ok"), 0);
+    error = send(*sockfd, "ok", sizeof("ok"), 0);
     // cout << "[DEBUG] Send: " << error << endl;
     cout << "[ERROR] ERRNO: " << errno << " " << strerror(errno) << endl;
     // printf("[DEBUG] Message sent: %s\n");
@@ -377,12 +507,13 @@ void *client_handler(void *args)
       {
       case 1:
       {
+
         char username[100];
         char passwd[100];
         bzero(recv_msg, sizeof(recv_msg));
 
         // recv username
-        recv_msg_len = recv(*sock_fd, &recv_msg, MAXLINE, 0);
+        recv_msg_len = recv(*sockfd, &recv_msg, MAXLINE, 0);
         // store the username
         for (int i = 0; i < recv_msg_len; i++)
         {
@@ -393,7 +524,7 @@ void *client_handler(void *args)
         bzero(recv_msg, sizeof(recv_msg));
 
         // recv passwd
-        recv_msg_len = recv(*sock_fd, &recv_msg, MAXLINE, 0);
+        recv_msg_len = recv(*sockfd, &recv_msg, MAXLINE, 0);
         // store the passwd
         for (int i = 0; i < recv_msg_len; i++)
         {
@@ -416,7 +547,7 @@ void *client_handler(void *args)
           {
             cout << msg;
           }
-          send(*sock_fd, msg_char, sizeof(msg_char), 0);
+          send(*sockfd, msg_char, sizeof(msg_char), 0);
           exit(0);
         }
         else if (child > 1)
@@ -427,12 +558,13 @@ void *client_handler(void *args)
       }
       case 2:
       {
+        bzero(recv_msg, sizeof(recv_msg));
         char username[100];
         char passwd[100];
-        bzero(recv_msg, sizeof(recv_msg));
+        //bzero(recv_msg, sizeof(recv_msg));
 
         // recv username
-        recv_msg_len = recv(*sock_fd, &recv_msg, MAXLINE, 0);
+        recv_msg_len = recv(*sockfd, &recv_msg, MAXLINE, 0);
         // store the username
         for (int i = 0; i < recv_msg_len; i++)
         {
@@ -443,7 +575,7 @@ void *client_handler(void *args)
         bzero(recv_msg, sizeof(recv_msg));
 
         // recv passwd
-        recv_msg_len = recv(*sock_fd, &recv_msg, MAXLINE, 0);
+        recv_msg_len = recv(*sockfd, &recv_msg, MAXLINE, 0);
         // store the passwd
         for (int i = 0; i < recv_msg_len; i++)
         {
@@ -459,14 +591,14 @@ void *client_handler(void *args)
           if (login_user(username, passwd))
           {
             cout << "[INFO] Logged in!\n";
-            send(*sock_fd, "ok", sizeof("ok"), 0);
+            send(*sockfd, "ok", sizeof("ok"), 0);
             // exit the child
             exit(0);
           }
           else
           {
             cout << "[ERROR] Credentials invalid!\n";
-            send(*sock_fd, "[ERROR] Credentials invalid!",
+            send(*sockfd, "[ERROR] Credentials invalid!",
                  sizeof("[ERROR] Credentials invalid!"), 0);
             // exit the child
             exit(1);
@@ -494,9 +626,9 @@ void *client_handler(void *args)
       case 3:
       {
         client_id = 0;
-        send(*sock_fd, "Te-ai deconectat de la server!",
+        send(*sockfd, "Te-ai deconectat de la server!",
              sizeof("Te-ai deconectat de la server!"), 0);
-        close(*sock_fd);
+        close(*sockfd);
         break;
       }
       }
@@ -513,7 +645,7 @@ void *client_handler(void *args)
         bzero(recv_msg, sizeof(recv_msg));
 
         // recv username
-        recv_msg_len = recv(*sock_fd, &recv_msg, MAXLINE, 0);
+        recv_msg_len = recv(*sockfd, &recv_msg, MAXLINE, 0);
         // store the username
         for (int i = 0; i < recv_msg_len; i++)
         {
@@ -524,7 +656,7 @@ void *client_handler(void *args)
         bzero(recv_msg, sizeof(recv_msg));
 
         // recv passwd
-        recv_msg_len = recv(*sock_fd, &recv_msg, MAXLINE, 0);
+        recv_msg_len = recv(*sockfd, &recv_msg, MAXLINE, 0);
         // store the passwd
         for (int i = 0; i < recv_msg_len; i++)
         {
@@ -539,16 +671,16 @@ void *client_handler(void *args)
         { // child
           if (add_user_data(key, value, client_id))
           {
-            cout << "[INFO] Logged in!\n";
-            send(*sock_fd, "ok", sizeof("ok"), 0);
+            cout << "[INFO] Added data " << key << " : " << value << "!\n";
+            send(*sockfd, "ok", sizeof("ok"), 0);
             // exit the child
             exit(0);
           }
           else
           {
-            cout << "[ERROR] Credentials invalid!\n";
-            send(*sock_fd, "[ERROR] Credentials invalid!",
-                 sizeof("[ERROR] Credentials invalid!"), 0);
+            cout << "[ERROR] Can't add data!\n";
+            send(*sockfd, "[ERROR] Can't add data!\n",
+                 sizeof("[ERROR] Can't add data!\n"), 0);
             // exit the child
             exit(1);
           }
@@ -558,21 +690,34 @@ void *client_handler(void *args)
           wait(&status);
           if (status == 0)
           {
-            cout << "[INFO] Data written" << endl;
+            cout << "[INFO] Data written for client " << client_id << endl;
           }
         }
         break;
       }
       case 2:
       { // read all data
-        string date;
-        date = getAllData(client_id);
-        // cout << date << endl;
-        int n = date.length();
-        char dataToSend[n + 1];
-        strcpy(dataToSend, date.c_str());
-        int s = write(*sock_fd, dataToSend, n + 1);
-        // send(*sock_fd, dataToSend, sizeof(dataToSend), 0);
+        int status;
+        pid_t child = fork();
+        if (child == 0)
+        { // child
+          string date;
+          date = getAllData(client_id);
+          // cout << date << endl;
+          int n = date.length();
+          char dataToSend[n + 1];
+          strcpy(dataToSend, date.c_str());
+          int s = write(*sockfd, dataToSend, n + 1);
+          // send(*sockfd, dataToSend, sizeof(dataToSend), 0);
+        }
+        else if (child > 1)
+        { // parent wait for child
+          wait(&status);
+          if (status == 0)
+          {
+            cout << "[INFO] Data written for client " << client_id << endl;
+          }
+        }
         break;
       }
       case 3:
@@ -581,7 +726,7 @@ void *client_handler(void *args)
         bzero(recv_msg, sizeof(recv_msg));
 
         // recv key
-        recv_msg_len = recv(*sock_fd, &recv_msg, MAXLINE, 0);
+        recv_msg_len = recv(*sockfd, &recv_msg, MAXLINE, 0);
         // store the key
         for (int i = 0; i < recv_msg_len; i++)
         {
@@ -595,7 +740,7 @@ void *client_handler(void *args)
         { // child
           string data = get_user_data(key, client_id);
           cout << data << endl;
-          send(*sock_fd, data.c_str(), sizeof(data.c_str()), 0);
+          send(*sockfd, data.c_str(), sizeof(data.c_str()), 0);
           // exit the child
           exit(0);
         }
@@ -611,7 +756,63 @@ void *client_handler(void *args)
       }
       case 4:
       { // update data
-        updateData(client_id, "fb");
+        char key[100];
+        char value[100];
+        bzero(recv_msg, sizeof(recv_msg));
+
+        // recv key
+        recv_msg_len = recv(*sockfd, &recv_msg, MAXLINE, 0);
+        // store the username
+        for (int i = 0; i < recv_msg_len; i++)
+        {
+          key[i] = recv_msg[i];
+        }
+        printf("[DEBUG] Key: %s \n", key);
+        // reset buffer
+        bzero(recv_msg, sizeof(recv_msg));
+  
+        // recv value
+        recv_msg_len = recv(*sockfd, &recv_msg, MAXLINE, 0);
+        // store the passwd
+        for (int i = 0; i < recv_msg_len; i++)
+        {
+          value[i] = recv_msg[i];
+        }
+        printf("[DEBUG] Value:%s \n", value);
+
+        // create child to execute function
+        int status;
+        pid_t child = fork();
+        if (child == 0)
+        { // child
+          string message = updateData(client_id, key, value); 
+          if (strstr(message.c_str(), "[INFO] Pair deleted!\n") == 0)
+          {
+            cout << "[INFO] Updated data " << key << " : " << value << "!\n";
+            // char *to_send_char;
+            // strcpy(to_send_char, to_send.c_str());
+            write(*sockfd, "[INFO] Updated data!\n", 
+                  sizeof("[INFO] Updated data!\n"));
+            // exit the child
+            exit(0);
+          }
+          else
+          {
+            cout << "[ERROR] Can't update data!\n";
+            send(*sockfd, "[ERROR] Can't update data!\n",
+                 sizeof("[ERROR] Can't update data!\n"), 0);
+            // exit the child
+            exit(1);
+          }
+        }
+        else if (child > 1)
+        { // parent wait for child
+          wait(&status);
+          if (status == 0)
+          {
+            cout << "[INFO] Data written for client " << client_id << endl;
+          }
+        }
         break;
       }
       case 5:
@@ -625,7 +826,7 @@ void *client_handler(void *args)
         bzero(recv_msg, sizeof(recv_msg));
 
         // recv key
-        recv_msg_len = recv(*sock_fd, &recv_msg, MAXLINE, 0);
+        recv_msg_len = recv(*sockfd, &recv_msg, MAXLINE, 0);
         // store the key
         for (int i = 0; i < recv_msg_len; i++)
         {
@@ -639,7 +840,7 @@ void *client_handler(void *args)
         { // child
           string data = delete_specific_data(key, client_id);
           cout << data << endl;
-          write(*sock_fd, data.c_str(), sizeof(data.c_str()));
+          write(*sockfd, data.c_str(), sizeof(data.c_str()));
           // exit the child
           exit(0);
         }
@@ -672,10 +873,11 @@ void *client_handler(void *args)
 int main()
 {
   struct sockaddr_in cli_addr, serv_addr;
-  int msg_len, sock_fd, new_sock_fd, connections;
+  int msg_len, sockfd, new_sockfd, connections;
   struct hostent *he;
   char msg[MAXLINE];
   pthread_t thds[NRTHREADS];
+  pthread_t unix_thread, inet_thread;
   char *NumeServer = (char *)"pcd proiect"; // numele serverului luat din argv[0]
   char NumeHostServer[MAXHOSTNAME];
 
@@ -691,11 +893,11 @@ int main()
          inet_ntoa(serv_addr.sin_addr)); // conversie adresa binarea in ASCII (ex. "127.0.0.1")
   /* numele procesului server luat de pe linia de comanda */
 
-  if ((sock_fd = socket(AF_INET, SOCK_STREAM, 0)) < 0)
+  if ((sockfd = socket(AF_INET, SOCK_STREAM, 0)) < 0)
     fprintf(stderr, "EROARE server: nu pot sa deschid stream socket \n");
 
   int check = 1;
-  if (setsockopt(sock_fd, SOL_SOCKET, SO_REUSEADDR, &check, sizeof(int)) < 0)
+  if (setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR, &check, sizeof(int)) < 0)
     fprintf(stderr, "setsockopt(SO_REUSEADDR) failed");
 
   bzero((char *)&serv_addr, sizeof(serv_addr));
@@ -703,12 +905,12 @@ int main()
   serv_addr.sin_addr.s_addr = htonl(INADDR_ANY);
   serv_addr.sin_port = htons(SERV_TCP_PORT);
 
-  if (bind(sock_fd, (struct sockaddr *)&serv_addr, sizeof(serv_addr)) < 0)
+  if (bind(sockfd, (struct sockaddr *)&serv_addr, sizeof(serv_addr)) < 0)
     fprintf(stderr, "EROARE server: nu pot sa asignez un nume adresei locale \n");
 
   printf("---TCPServer %s: ++++ astept conexiune clienti pe PORT: %d++++\n\n", NumeServer, ntohs(serv_addr.sin_port));
 
-  if (listen(sock_fd, 100) < 0)
+  if (listen(sockfd, 100) < 0)
   {
     fprintf(stderr, "Eroare!");
     exit(0);
@@ -718,14 +920,14 @@ int main()
   {
     bzero((char *)&cli_addr, sizeof(cli_addr));
     socklen_t cli_addr_size = sizeof(cli_addr);
-    new_sock_fd = accept(sock_fd, (struct sockaddr *)&cli_addr, &cli_addr_size);
+    new_sockfd = accept(sockfd, (struct sockaddr *)&cli_addr, &cli_addr_size);
 
-    if (new_sock_fd < 0)
+    if (new_sockfd < 0)
     {
       fprintf(stderr, "[EROARE SERVER]: accept()\n");
       exit(1);
     }
-    msg_len = recv(new_sock_fd, &msg, MAXLINE, 0);
+    msg_len = recv(new_sockfd, &msg, MAXLINE, 0);
     printf("[INFO] Client Type: %s\n", msg);
     msg[msg_len] = '\0';
 
@@ -734,30 +936,30 @@ int main()
       if (admin_connection == false)
       { // daca nu mai e conectat unul deja
         pthread_create(&thds[connections], NULL, admin_handler,
-                       (void *)&new_sock_fd);
+                       (void *)&new_sockfd);
         connections++;
       }
       else
       { // daca e conectat, send error to client
         char temp_msg[100] = "[ERROR] Un admin e deja conectat.\n";
-        send(new_sock_fd, temp_msg, sizeof(temp_msg), 0);
-        close(new_sock_fd);
+        send(new_sockfd, temp_msg, sizeof(temp_msg), 0);
+        close(new_sockfd);
       }
     }
     else if (strncmp(msg, "client\0", sizeof("client\0")) == 0)
     {
       // cout << "aici\n";
       pthread_create(&thds[connections++], NULL, client_handler,
-                     (void *)&new_sock_fd);
+                     (void *)&new_sockfd);
       // cout << "aici2\n";
     }
     else
     {
       printf("[ERROR] Unkown connection. Closing...\n");
-      close(new_sock_fd);
+      close(new_sockfd);
     }
   }
-  close(sock_fd);
-  close(new_sock_fd);
+  close(sockfd);
+  close(new_sockfd);
 }
 //============================================================================//

@@ -76,14 +76,13 @@ void echoToServer(int sockfd)
                         // reset buffer and wait for messge
                         bzero(line, sizeof(line));
                         recv(sockfd, &line, MAXLINE, 0);
-                        string status = line;
-                        if (status.contains("ok"))
+                        if (strstr(line, "ok") == 0)
                         {
                             cout << "Utilizator creat cu succes!" << endl;
                         }
                         else
                         {
-                            cout << msg;
+                            cout << line;
                         }
                     }
                     else
@@ -181,7 +180,9 @@ void echoToServer(int sockfd)
                 if (send_option_to_server((char *)"2", sockfd))
                 {
                     bzero(line, MAXLINE);
-                    int n = read(sockfd, line, MAXLINE);
+                    int n = read(sockfd, &line, MAXLINE);
+                    cout << line << endl;
+                    // line[n] = "\n";
                     json data = json::parse(line);
                     cout << endl;
                     cout << data.dump(4) << endl;
@@ -222,6 +223,19 @@ void echoToServer(int sockfd)
             { // Update data
                 if (send_option_to_server((char *)"4", sockfd))
                 {
+                    string key, value;
+                    cout << "Introduceti numele secretului: ";
+                    getline(cin >> ws, key);
+                    //send(sockfd, key.c_str(), sizeof(key.c_str()), 0);
+                    int n = write(sockfd, key.c_str(), key.length() + 1);
+                    cout << "Introduceti valoarea: ";
+                    getline(cin >> ws, value);
+                    sleep(1);
+                    int s = write(sockfd, value.c_str(), value.length() + 1);
+                    sleep(2);
+                    bzero(line, sizeof(line));
+                    read(sockfd, &line, MAXLINE);
+                    cout << line;
                 }
                 else
                 {

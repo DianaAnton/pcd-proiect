@@ -20,8 +20,7 @@ def recv_msg(sock):
 
 def send_msg(sock, msg):
     data = msg.encode('utf-8')
-    sock.sendall(data)
-
+    sock.send(data)
 
 def register(sockfd, username, password):
     
@@ -33,7 +32,6 @@ def register(sockfd, username, password):
     return msg
 
 def login(sockfd, username, password):
-    
     send_msg(sockfd, username)
     time.sleep(0.3)
     send_msg(sockfd, password)
@@ -47,23 +45,23 @@ if __name__ == '__main__' :
     except ConnectionError:
         print('Error in socket')
 
-
     try:
-       send_msg(sock, "client")
+       sock.send("client".encode())
     except  Exception as ex:
         print(ex)
     
     try:
-        recv = recv_msg(sock)
-        print(recv)
+        recv = sock.recv(1024)
+        print(recv.decode())
     except  Exception as ex:
         print(ex) 
 
-    username = "aa"
-    password = "aa" 
-    ok = "ok"
+    #username = "python2"
+    #password = "python2" 
+    #ok = "ok"
     connected = False
     while True:
+
         if connected == False:
             print("1. Creare cont")
             print("2. Conectare")
@@ -72,12 +70,27 @@ if __name__ == '__main__' :
             
             if optiune == "1":
                 try:
-                    send_msg(sock, "1")
+                    sock.send(optiune.encode())
                     # recv ok de la server
-                    recv = recv_msg(sock)
-                    recv = str(recv)
+                    #recv = recv_msg(sock)
+                    #recv = str(recv)
+                    recv = sock.recv(1024)
+                    print("In opt1 msg received: {}".format(recv.decode()))
                     if recv:
-                        msg = register(sock, username, password)
+                        username = input( "Introduceti nume de utilizator: \n")
+                        #send_msg(sock, username)
+                        username = str(username) + '\0'
+                        sock.send(username.encode())
+                        password = input("Introduceti parola: \n")
+                        password = str(password) + '\0'
+                        time.sleep(1)
+                        
+                        sock.send(password.encode())
+                        #send_msg(sock, password)
+                        #username += " " + password
+                        #print("---{} = {} ----".format(username, username.encode()))
+                        #sock.send(username.encode())
+                        
                     else:
                         print("server error")
                 except Exception as ex:
@@ -85,11 +98,20 @@ if __name__ == '__main__' :
 
             elif optiune == "2":
                 try:
-                    send_msg(sock, "2")
-                    recv = recv_msg(sock)
-                    print("de la server {}".format(recv))
+                    #send_msg(sock, optiune)
+                    sock.send(optiune.encode())
+                    #recv = recv_msg(sock)
+                    #recv = str(recv)
+                    recv = sock.recv(1024)
+                    print("in opt2 msg received {}".format(recv.decode()))
                     if recv:
-                        login(sock, username, password)
+                        username = input( "Introduceti nume de utilizator: \n")
+                        sock.send(username.encode())
+                        password = input("Introduceti parola: \n")
+                        sock.send(password.encode())
+                        #send_msg(sock, username)
+                        time.sleep(1)
+                        #send_msg(sock, password)
                         connected = True
                     else:
                         print("server error")
@@ -110,10 +132,11 @@ if __name__ == '__main__' :
 
             if optiune == "1":
                 try:
-                    send_msg(sock, "1")
+                    send_msg(sock, optiune)
                     recv = recv_msg(sock)
                     if recv:
                         key = input("Introduceti numele secretului: \n")
+                        
                         send_msg(sock, key)
                         time.sleep(0.5)
                         value = input("Introduceti valoarea: \n")
@@ -123,18 +146,20 @@ if __name__ == '__main__' :
                     print(ex)
             elif optiune == "2" :
                 try:
-                    send_msg(sock, "2")
+                    send_msg(sock, optiune)
+                    
                     recv = recv_msg(sock)
                     print("in getall {}".format(recv))
                     if recv:
                         msg = recv_msg(sock)
-                        msg = recv_msg(sock)
                         print("Print your data ----> {}".format(msg))
+                    else:
+                        print("You don`t have any data saved!")
                 except Exception as ex:
                     print(ex)
             elif optiune == "3":
                 try:
-                    send_msg(sock, "3")
+                    send_msg(sock, optiune)
                     recv = recv_msg(sock)
                     print("in search specific.. {}".format(recv))
                     if recv:
@@ -146,4 +171,21 @@ if __name__ == '__main__' :
                        print("Secretul cautat este: {}".format(msg[3:]))
                 except Exception as ex:
                     print(ex)
+            elif optiune == "4":
+                try:
+                    send_msg(sock, optiune)
+                    recv = recv_msg(sock)
+                    print("{}".format(recv))
+                    if recv:
+                        secret = input("Introduceti numele secretului: \n")
+                        send_msg(sock, secret)
+                        time.sleep(0.5)
+                        key = input("Introduce valoarea: \n")
+                        time.sleep(0.5)
+                        send_msg(sock, key)
+                        time.sleep(0.5)
+                        msg = recv_msg(sock)
+                        print("{}".format(msg))
+                except Exception as ex:
+                    print(ex)   
                     

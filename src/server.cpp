@@ -22,6 +22,7 @@ using namespace std;
 using json = nlohmann::json;
 
 #define UNIX_PORT 7979
+#define SERV_TCP_PORT 7979
 #define INET_PORT 7980
 #define MAXLINE 50000
 #define MAXHOSTNAME 100
@@ -64,188 +65,147 @@ using namespace std;
 //  }
 //============================================================================//
 //----------------------------------------------------------------------------//
-void *create_unix()
-{
-  struct sockaddr_in cli_addr, serv_addr;
-  int msg_len, sockfd, new_sockfd, connections;
-  struct hostent *he;
-  char msg[MAXLINE];
-  pthread_t thds[NRTHREADS];
-  pthread_t unix_thread, inet_thread;
-  char *NumeServer = (char *)"pcd proiect"; // numele serverului luat din argv[0]
-  char NumeHostServer[MAXHOSTNAME];
+// void *create_unix()
+// {
+//    struct sockaddr_un name;
+//   int sock; /* UNIX Socket descriptor */
+//   size_t size;
+  
+//   /* Create the socket. */
+//   sock = socket (PF_LOCAL, SOCK_DGRAM, 0);
+//   if (sock < 0) {
+// //    perror ("unix-common: socket error");
+//     pthread_exit (NULL);
+//   }
+  
+//   name.sun_family = AF_LOCAL; /* Set ADDRESS Family */
+//   strncpy (name.sun_path, filename, sizeof (name.sun_path));
+//   /* Create SOCKET Path info */
+//   name.sun_path[sizeof (name.sun_path) - 1] = '\0';
+  
+//   size = (offsetof (struct sockaddr_un, sun_path)
+// 	  + strlen (name.sun_path) + 1);
+//   /* You can use size = SUN_LEN (&name) ; instead */
+  
+//   /* Now BIND the socket */
+//   if (bind (sock, (struct sockaddr *) &name, size) < 0) {
+// //    perror ("bind");
+//     pthread_exit (NULL);
+//   }
+  
+//   /* And RETURN success :) */
+//   return sock;
+// }
 
-  gethostname(NumeHostServer, MAXHOSTNAME);
-  printf("\n----TCPServer startat pe hostul: %s\n", NumeHostServer);
+// void *unix_main (void *args) {
+//   char *socket = (char *) args ;
 
-  he = gethostbyname(NumeHostServer); // aflam adresa de IP server/ probabil 127.0.0.1
+//   if (unix_socket (socket)) { 
+//  /*
+//     pthread_mutex_lock (&curmtx) ; // Protect CURSES usage!!!
+//     attron (COLOR_PAIR(1)) ;
+//     mvwprintw (mainwnd, LINES-4, 2, "Socket UNIX (%s) created", socket) ;
+//     attroff (COLOR_PAIR(1)) ;
+// //    wrefresh (mainwnd) ;
+//     pthread_mutex_unlock (&curmtx) ;
+//     */
+//   }
 
-  bcopy(he->h_addr, &(serv_addr.sin_addr), he->h_length);
-  printf(" \t(TCPServer INET ADDRESS (IP) este: %s )\n",
-         inet_ntoa(serv_addr.sin_addr)); // conversie adresa binarea in ASCII (ex. "127.0.0.1")
-
-  if ((sockfd = socket(AF_UNIX, SOCK_STREAM, 0)) < 0)
-    fprintf(stderr, "EROARE server: nu pot sa deschid stream socket \n");
-
-  int check = 1;
-  if (setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR, &check, sizeof(int)) < 0)
-    fprintf(stderr, "setsockopt(SO_REUSEADDR) failed");
-
-  bzero((char *)&serv_addr, sizeof(serv_addr));
-  serv_addr.sin_family = AF_UNIX;
-  serv_addr.sin_addr.s_addr = htonl(INADDR_ANY);
-  serv_addr.sin_port = htons(UNIX_PORT);
-
-  if (bind(sockfd, (struct sockaddr *)&serv_addr, sizeof(serv_addr)) < 0)
-    fprintf(stderr, "EROARE server: nu pot sa asignez un nume adresei locale \n");
-
-  printf("---TCPServer-UNIX %s: ++++ astept conexiune clienti pe PORT: %d++++\n\n", NumeServer, ntohs(serv_addr.sin_port));
-
-  if (listen(sockfd, 100) < 0)
-  {
-    fprintf(stderr, "Eroare!");
-    exit(0);
-  }
-
-  while (1)
-  {
-    bzero((char *)&cli_addr, sizeof(cli_addr));
-    socklen_t cli_addr_size = sizeof(cli_addr);
-    new_sockfd = accept(sockfd, (struct sockaddr *)&cli_addr, &cli_addr_size);
-
-    if (new_sockfd < 0)
-    {
-      fprintf(stderr, "[EROARE SERVER]: accept()\n");
-      exit(1);
-    }
-    msg_len = recv(new_sockfd, &msg, MAXLINE, 0);
-    printf("[INFO] Client Type: %s\n", msg);
-    msg[msg_len] = '\0';
-
-    if (strncmp(msg, "admin\0", sizeof("admin\0")) == 0)
-    { // start thread cu functie admin
-      if (admin_connection == false)
-      { // daca nu mai e conectat unul deja
-        pthread_create(&thds[connections], NULL, admin_handler,
-                       (void *)&new_sockfd);
-        connections++;
-      }
-      else
-      { // daca e conectat, send error to client
-        char temp_msg[100] = "[ERROR] Un admin e deja conectat.\n";
-        send(new_sockfd, temp_msg, sizeof(temp_msg), 0);
-        close(new_sockfd);
-      }
-    }
-    else if (strncmp(msg, "client\0", sizeof("client\0")) == 0)
-    {
-      // cout << "aici\n";
-      pthread_create(&thds[connections++], NULL, client_handler,
-                     (void *)&new_sockfd);
-      // cout << "aici2\n";
-    }
-    else
-    {
-      printf("[ERROR] Unkown connection. Closing...\n");
-      close(new_sockfd);
-    }
-  }
-  close(sockfd);
-  close(new_sockfd);
-}
+//   pthread_exit (NULL) ;
+// }
 //----------------------------------------------------------------------------//
-void *create_inet()
-{
-  struct sockaddr_in cli_addr, serv_addr;
-  int msg_len, sockfd, new_sockfd, connections;
-  struct hostent *he;
-  char msg[MAXLINE];
-  pthread_t thds[NRTHREADS];
-  pthread_t unix_thread, inet_thread;
-  char *NumeServer = (char *)"pcd proiect"; // numele serverului luat din argv[0]
-  char NumeHostServer[MAXHOSTNAME];
+// void *create_inet()
+// {
+//   struct sockaddr_in cli_addr, serv_addr;
+//   int msg_len, sockfd, new_sockfd, connections;
+//   struct hostent *he;
+//   char msg[MAXLINE];
+//   pthread_t thds[NRTHREADS];
+//   pthread_t unix_thread, inet_thread;
+//   char *NumeServer = (char *)"pcd proiect"; // numele serverului luat din argv[0]
+//   char NumeHostServer[MAXHOSTNAME];
 
-  // pthread_mutex_init(&mutex, NULL);
+//   // pthread_mutex_init(&mutex, NULL);
 
-  gethostname(NumeHostServer, MAXHOSTNAME);
-  printf("\n----TCPServer startat pe hostul: %s\n", NumeHostServer);
+//   gethostname(NumeHostServer, MAXHOSTNAME);
+//   printf("\n----TCPServer startat pe hostul: %s\n", NumeHostServer);
 
-  he = gethostbyname(NumeHostServer); // aflam adresa de IP server/ probabil 127.0.0.1
+//   he = gethostbyname(NumeHostServer); // aflam adresa de IP server/ probabil 127.0.0.1
 
-  bcopy(he->h_addr, &(serv_addr.sin_addr), he->h_length);
-  printf(" \t(TCPServer INET ADDRESS (IP) este: %s )\n",
-         inet_ntoa(serv_addr.sin_addr)); // conversie adresa binarea in ASCII (ex. "127.0.0.1")
-  /* numele procesului server luat de pe linia de comanda */
+//   bcopy(he->h_addr, &(serv_addr.sin_addr), he->h_length);
+//   printf(" \t(TCPServer INET ADDRESS (IP) este: %s )\n",
+//          inet_ntoa(serv_addr.sin_addr)); // conversie adresa binarea in ASCII (ex. "127.0.0.1")
+//   /* numele procesului server luat de pe linia de comanda */
 
-  if ((sockfd = socket(AF_INET, SOCK_STREAM, 0)) < 0)
-    fprintf(stderr, "EROARE server: nu pot sa deschid stream socket \n");
+//   if ((sockfd = socket(AF_INET, SOCK_STREAM, 0)) < 0)
+//     fprintf(stderr, "EROARE server: nu pot sa deschid stream socket \n");
 
-  int check = 1;
-  if (setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR, &check, sizeof(int)) < 0)
-    fprintf(stderr, "setsockopt(SO_REUSEADDR) failed");
+//   int check = 1;
+//   if (setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR, &check, sizeof(int)) < 0)
+//     fprintf(stderr, "setsockopt(SO_REUSEADDR) failed");
 
-  bzero((char *)&serv_addr, sizeof(serv_addr));
-  serv_addr.sin_family = AF_INET;
-  serv_addr.sin_addr.s_addr = htonl(INADDR_ANY);
-  serv_addr.sin_port = htons(INET_PORT);
+//   bzero((char *)&serv_addr, sizeof(serv_addr));
+//   serv_addr.sin_family = AF_INET;
+//   serv_addr.sin_addr.s_addr = htonl(INADDR_ANY);
+//   serv_addr.sin_port = htons(INET_PORT);
 
-  if (bind(sockfd, (struct sockaddr *)&serv_addr, sizeof(serv_addr)) < 0)
-    fprintf(stderr, "EROARE server: nu pot sa asignez un nume adresei locale \n");
+//   if (bind(sockfd, (struct sockaddr *)&serv_addr, sizeof(serv_addr)) < 0)
+//     fprintf(stderr, "EROARE server: nu pot sa asignez un nume adresei locale \n");
 
-  printf("---TCPServer %s: ++++ astept conexiune clienti pe PORT: %d++++\n\n", NumeServer, ntohs(serv_addr.sin_port));
+//   printf("---TCPServer %s: ++++ astept conexiune clienti pe PORT: %d++++\n\n", NumeServer, ntohs(serv_addr.sin_port));
 
-  if (listen(sockfd, 100) < 0)
-  {
-    fprintf(stderr, "Eroare!");
-    exit(0);
-  }
+//   if (listen(sockfd, 100) < 0)
+//   {
+//     fprintf(stderr, "Eroare!");
+//     exit(0);
+//   }
 
-  while (1)
-  {
-    bzero((char *)&cli_addr, sizeof(cli_addr));
-    socklen_t cli_addr_size = sizeof(cli_addr);
-    new_sockfd = accept(sockfd, (struct sockaddr *)&cli_addr, &cli_addr_size);
+//   while (1)
+//   {
+//     bzero((char *)&cli_addr, sizeof(cli_addr));
+//     socklen_t cli_addr_size = sizeof(cli_addr);
+//     new_sockfd = accept(sockfd, (struct sockaddr *)&cli_addr, &cli_addr_size);
 
-    if (new_sockfd < 0)
-    {
-      fprintf(stderr, "[EROARE SERVER]: accept()\n");
-      exit(1);
-    }
-    msg_len = recv(new_sockfd, &msg, MAXLINE, 0);
-    printf("[INFO] Client Type: %s\n", msg);
-    msg[msg_len] = '\0';
+//     if (new_sockfd < 0)
+//     {
+//       fprintf(stderr, "[EROARE SERVER]: accept()\n");
+//       exit(1);
+//     }
+//     msg_len = recv(new_sockfd, &msg, MAXLINE, 0);
+//     printf("[INFO] Client Type: %s\n", msg);
+//     msg[msg_len] = '\0';
 
-    if (strncmp(msg, "admin\0", sizeof("admin\0")) == 0)
-    { // start thread cu functie admin
-      if (admin_connection == false)
-      { // daca nu mai e conectat unul deja
-        pthread_create(&thds[connections], NULL, admin_handler,
-                       (void *)&new_sockfd);
-        connections++;
-      }
-      else
-      { // daca e conectat, send error to client
-        char temp_msg[100] = "[ERROR] Un admin e deja conectat.\n";
-        send(new_sockfd, temp_msg, sizeof(temp_msg), 0);
-        close(new_sockfd);
-      }
-    }
-    else if (strncmp(msg, "client\0", sizeof("client\0")) == 0)
-    {
-      // cout << "aici\n";
-      pthread_create(&thds[connections++], NULL, client_handler,
-                     (void *)&new_sockfd);
-      // cout << "aici2\n";
-    }
-    else
-    {
-      printf("[ERROR] Unkown connection. Closing...\n");
-      close(new_sockfd);
-    }
-  }
-  close(sockfd);
-  close(new_sockfd);
-}
+//     if (strncmp(msg, "admin\0", sizeof("admin\0")) == 0)
+//     { // start thread cu functie admin
+//       if (admin_connection == false)
+//       { // daca nu mai e conectat unul deja
+//         pthread_create(&thds[connections], NULL, admin_handler,
+//                        (void *)&new_sockfd);
+//         connections++;
+//       }
+//       else
+//       { // daca e conectat, send error to client
+//         char temp_msg[100] = "[ERROR] Un admin e deja conectat.\n";
+//         send(new_sockfd, temp_msg, sizeof(temp_msg), 0);
+//         close(new_sockfd);
+//       }
+//     }
+//     else if (strncmp(msg, "client\0", sizeof("client\0")) == 0)
+//     {
+//       // cout << "aici\n";
+//       pthread_create(&thds[connections++], NULL, client_handler,
+//                      (void *)&new_sockfd);
+//       // cout << "aici2\n";
+//     }
+//     else
+//     {
+//       printf("[ERROR] Unkown connection. Closing...\n");
+//       close(new_sockfd);
+//     }
+//   }
+//   close(sockfd);
+//   close(new_sockfd);
+// }
 //----------------------------------------------------------------------------//
 
 //----------------------------------------------------------------------------//
@@ -934,6 +894,7 @@ int main()
     if (strncmp(msg, "admin\0", sizeof("admin\0")) == 0)
     { // start thread cu functie admin
       if (admin_connection == false)
+        
       { // daca nu mai e conectat unul deja
         pthread_create(&thds[connections], NULL, admin_handler,
                        (void *)&new_sockfd);

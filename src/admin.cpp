@@ -38,13 +38,6 @@ using json = nlohmann::json;
  *  STABILIRE CLARA A FUNCTIILOR DE CATRE ADMIN
  */
 //============================================================================//
-void signal_sigint(int signal)
-{
-    printf("Adio!\n");
-    close(sockfd);
-    exit(0);
-}
-//----------------------------------------------------------------------------//
 void echoToServer(int sockfd)
 {
     // mesajul
@@ -57,7 +50,6 @@ void echoToServer(int sockfd)
     // send admin type
     send(sockfd, "admin", sizeof("admin"), 0);
     // bzero(line, sizeof(line));
-    sleep(1);
     recv(sockfd, &line, MAXLINE, 0);
     cout << line << endl;
 
@@ -85,10 +77,20 @@ void echoToServer(int sockfd)
                         send(sockfd, username.c_str(), strlen(username.c_str()), 0);
                         cout << "Introduceti parola: ";
                         getline(cin >> ws, passwd);
+                        // send to server
                         send(sockfd, passwd.c_str(), strlen(passwd.c_str()), 0);
-                        // string info = username + "|" + passwd;
-                        printf("Dupa send: %s %s \n", username.c_str(), passwd.c_str());
-                        // send(sockfd, info.c_str(), sizeof(info.c_str()), 0);
+                        // reset buffer and wait for messge
+                        bzero(line, sizeof(line));
+                        // e bun, primeste ok din functie
+                        recv(sockfd, &line, MAXLINE, 0);
+                        if (strstr(line, "ok") == 0)
+                        {
+                            cout << "Utilizator creat cu succes!" << endl;
+                        }
+                        else
+                        {
+                            cout << line;
+                        }
                     }
                     else
                     {
@@ -109,6 +111,7 @@ void echoToServer(int sockfd)
                         getline(cin >> ws, passwd);
                         send(sockfd, passwd.c_str(), strlen(passwd.c_str()), 0);
 
+                        sleep(1);
                         // gets ok from server
                         bzero(line, sizeof(line));
                         size = recv(sockfd, line, MAXLINE, 0);
@@ -132,13 +135,13 @@ void echoToServer(int sockfd)
                 }
                 case 3:
                 { // Exit
-                    if (send_option_to_server((char *)"3", sockfd))
+                     if (send_option_to_server((char *)"3", sockfd))
                     {
                         bzero(line, sizeof(line));
                         size = recv(sockfd, line, MAXLINE, 0);
                         line[size] = '\0';
                         printf("%s\n", line);
-                        // close(sockfd);
+                        close(sockfd);
                         exit(0);
                     }
                     break;
@@ -151,37 +154,38 @@ void echoToServer(int sockfd)
             cout << "2. Meniu pentru alt client\n";
             cout << "3. Log out\n";
             cout << "4. Exit\n";
+            cout << "Optiune: ";
             cin >> option;
             switch (option)
             {
                 case 1:
                 { // Admin
-                    if (send_option_to_server((char *)"1", sockfd))
-                    {
+                    //if (send_option_to_server((char *)"1", sockfd))
+                    //{
                         admin_menu(sockfd);
-                    }
-                    else
-                    {
-                        printf("[ERROR]\n");
-                    }
+                   // }
+                   // else
+                   // {
+                       // printf("[ERROR]\n");
+                   // }
                     break;
                 }
                 case 2:
                 { // Other client
-                    if (send_option_to_server((char *)"2", sockfd))
-                    {
+                    //if (send_option_to_server((char *)"2", sockfd))
+                    //{
                         string username;
-                        cout << "Introdu numele utilizatorului: ";
+                        cout << "Introdu numele utilizatorului: \n";
                         getline(cin >> ws, username);
 
                         int s = write(sockfd, username.c_str(), username.length() + 1);
 
                         admin_menu(sockfd);
-                    }
-                    else
-                    {
+                    //}
+                    //else
+                   //{
                         printf("[ERROR]\n");
-                    }
+                    //}
                     break;                
                 }
                 case 3:

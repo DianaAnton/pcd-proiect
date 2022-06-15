@@ -4,7 +4,7 @@ import sys
 HOST = '127.0.0.1'
 PORT = 7979
 
-buffer = 50000
+buffer = 5000
 
 def recv_msg(sock):
     data = bytearray()
@@ -74,6 +74,7 @@ if __name__ == '__main__' :
                     # recv ok de la server
                     #recv = recv_msg(sock)
                     #recv = str(recv)
+                    time.sleep(3)
                     recv = sock.recv(1024)
                     print("In opt1 msg received: {}".format(recv.decode()))
                     if recv:
@@ -107,8 +108,10 @@ if __name__ == '__main__' :
                     if recv:
                         username = input( "Introduceti nume de utilizator: \n")
                         sock.send(username.encode())
+                        username += '\0'
                         password = input("Introduceti parola: \n")
                         sock.send(password.encode())
+                        password += '\0'
                         #send_msg(sock, username)
                         time.sleep(1)
                         #send_msg(sock, password)
@@ -135,11 +138,14 @@ if __name__ == '__main__' :
                     send_msg(sock, optiune)
                     recv = recv_msg(sock)
                     if recv:
+                        key = ""
                         key = input("Introduceti numele secretului: \n")
-                        
+                        key += '\0'
                         send_msg(sock, key)
                         time.sleep(0.5)
+                        value = ""
                         value = input("Introduceti valoarea: \n")
+                        value += '\0'
                         send_msg(sock, value)
                         time.sleep(1)
                 except Exception as ex:
@@ -147,9 +153,9 @@ if __name__ == '__main__' :
             elif optiune == "2" :
                 try:
                     send_msg(sock, optiune)
-                    
-                    recv = recv_msg(sock)
-                    print("in getall {}".format(recv))
+                    time.sleep(3)
+                    recv = sock.recv(buffer)
+                    print("in getall {}".format(recv.decode()))
                     if recv:
                         msg = recv_msg(sock)
                         print("Print your data ----> {}".format(msg))
@@ -163,7 +169,9 @@ if __name__ == '__main__' :
                     recv = recv_msg(sock)
                     print("in search specific.. {}".format(recv))
                     if recv:
+                       secret = ""
                        secret = input("Introduceti numele secretului cautatat: \n")
+                       secret += '\0'
                        send_msg(sock, secret)
                        time.sleep(2)
                       
@@ -187,5 +195,21 @@ if __name__ == '__main__' :
                         msg = recv_msg(sock)
                         print("{}".format(msg))
                 except Exception as ex:
-                    print(ex)   
+                    print(ex)
+            elif optiune == "5":
+                try:
+                    send_msg(sock, optiune)
+                    print("opti5")
+                    #recv = recv_msg(sock)
+                    #print("optiunea 5, am primit de la server... {}".format(recv))
+                    if recv:
+                        print("[INFO] You are going to delete all data..\n")
+                    else:
+                        print("[INFO] You don`t have any data to delete!\n")
                     
+                except Exception as ex:
+                    print(ex)
+            # elif optiune == "6":
+            #     try:
+            #         send_msg(sock, optiune)
+

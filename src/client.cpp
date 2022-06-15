@@ -34,13 +34,6 @@ using json = nlohmann::json;
  *  STABILIRE CLARA A FUNCTIILOR DE CATRE CLIENT
  */
 //============================================================================//
-void signal_sigint(int signal)
-{
-    printf("Adio!\n");
-    close(sockfd);
-    exit(0);
-}
-//----------------------------------------------------------------------------//
 void echoToServer(int sockfd)
 {
     // mesajul
@@ -173,6 +166,8 @@ void echoToServer(int sockfd)
                     getline(cin >> ws, key);
                     //send(sockfd, key.c_str(), sizeof(key.c_str()), 0);
                     int n = write(sockfd, key.c_str(), key.length() + 1);
+                    
+                    cout << line << endl;
                     cout << "Introduceti valoarea: ";
                     getline(cin >> ws, value);
                     sleep(1);

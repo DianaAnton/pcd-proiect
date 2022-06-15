@@ -16,7 +16,7 @@
 #include <iostream>
 #include <fstream>
 #include "server_functions.hpp"
-
+#include <strings.h>
 using namespace std;
 // for convenience
 using json = nlohmann::json;
@@ -500,9 +500,10 @@ void *client_handler(void *args)
 
   while (1)
   { // recv option not connected
-    bzero(&recv_msg, sizeof(recv_msg));
+    //bzero(&recv_msg, sizeof(recv_msg));
+    //printf("%s",recv_msg);
     option = receive_option_from_client(sockfd);
-
+    printf("inainte de login optiune = %d", option);
     if (login == false)
     {
       switch (option)
@@ -517,7 +518,7 @@ void *client_handler(void *args)
         bzero(recv_msg, sizeof(recv_msg));
 
         // recv username
-        recv_msg_len = recv(sockfd, &recv_msg, MAXLINE, 0);
+        recv(sockfd, &recv_msg, MAXLINE, 0);
         // store the username
         // for (int i = 0; i < recv_msg_len; i++)
         // {
@@ -529,7 +530,7 @@ void *client_handler(void *args)
         bzero(recv_msg, sizeof(recv_msg));
 
         // recv passwd
-        recv_msg_len = recv(sockfd, &recv_msg, MAXLINE, 0);
+        recv(sockfd, &recv_msg, MAXLINE, 0);
         // store the passwd
         // for (int i = 0; i < recv_msg_len; i++)
         // {
@@ -555,7 +556,8 @@ void *client_handler(void *args)
             cout << msg;
           }
           // e bun
-          send(sockfd, msg_char, sizeof(msg_char), 0);
+          //send(sockfd, msg_char, sizeof(msg_char), 0);
+          int s = write(sockfd, "ok\0", strlen("ok\0") + 1);
           exit(0);
         }
         else if (child > 1)
@@ -608,6 +610,7 @@ void *client_handler(void *args)
             cout << "[INFO] Logged in!\n";
             // e bun, se sincronizeaza
             send(sockfd, "ok\0", sizeof("ok\0"), 0);
+            // int s = write(sockfd, "ok", strlen("ok") + 1);
             // exit the child
             exit(0);
           }
@@ -665,7 +668,7 @@ void *client_handler(void *args)
       { // add data
         char key[100];
         char value[100];
-        bzero(recv_msg, sizeof(recv_msg));
+        explicit_bzero(recv_msg, sizeof(recv_msg));
 
         // recv username
         recv_msg_len = recv(sockfd, &recv_msg, MAXLINE, 0);
@@ -695,7 +698,8 @@ void *client_handler(void *args)
           if (add_user_data(key, value, client_id))
           {
             cout << "[INFO] Added data " << key << " : " << value << "!\n";
-            send(sockfd, "ok\0", sizeof("ok\0"), 0);
+            //send(sockfd, "ok\0", sizeof("ok\0"), 0);
+            int s = write(sockfd, "ok", strlen("ok"));
             // exit the child
             exit(0);
           }

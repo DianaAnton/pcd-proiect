@@ -59,8 +59,10 @@ if __name__ == '__main__' :
     except  Exception as ex:
         print(ex) 
 
-    username = "aa"
-    password = "aa" 
+    #username = "aa"
+    #password = "aa" 
+    username = "pcd"
+    password = "pcd" 
     #ok = "ok"
     connected = False
     while True:
@@ -75,7 +77,7 @@ if __name__ == '__main__' :
                     send_msg(sock, "1")
                     # recv ok de la server
                     recv = recv_msg(sock)
-                    recv = str(recv)
+                    #recv = str(recv)
                     if recv:
                         msg = register(sock, username, password)
                     else:
@@ -95,6 +97,15 @@ if __name__ == '__main__' :
                         print("server error")
                 except Exception as ex:
                     print(ex)
+            elif optiune == "3":
+                try:
+                    send_msg(sock, "3")
+                    # recv ok de la server
+                    recv = recv_msg(sock)
+                   # print("{}".format(recv)) 
+                except Exception as ex:
+                    print(ex)
+
 
         elif connected == True:
 
@@ -105,7 +116,6 @@ if __name__ == '__main__' :
             print("5. Stergere TOATE datele\n")
             print("6. Stergere o pereche anume\n")
             print("7. Log out\n")
-            print("8. Exit\n")
             optiune = input("Optiune:")
 
             if optiune == "1":
@@ -124,11 +134,15 @@ if __name__ == '__main__' :
             elif optiune == "2" :
                 try:
                     send_msg(sock, "2")
+                    
                     recv = recv_msg(sock)
+                    time.sleep(0.5)
+                    #time.sleep(4)
                     print("in getall {}".format(recv))
                     if recv:
+                        time.sleep(4)
                         msg = recv_msg(sock)
-                        msg = recv_msg(sock)
+                        #msg = recv_msg(sock)
                         print("Print your data ----> {}".format(msg))
                 except Exception as ex:
                     print(ex)
@@ -146,6 +160,51 @@ if __name__ == '__main__' :
                        print("Secretul cautat este: {}".format(msg))
                 except Exception as ex:
                     print(ex)
-            elif optiunea == "4":
-                
+            elif optiune == "4":
+                try:
+                    send_msg(sock, "4")
+                    recv = recv_msg(sock)
+                    print("recv msg  ----> {}".format(recv))
+                    if recv:
+                        secret = input("Introduceti numele secretului: \n")
+                        send_msg(sock, secret)
+                        time.sleep(0.5)
+                        key = input("Introduce valoarea: \n")
+                        time.sleep(0.5)
+                        send_msg(sock, key)
+                        time.sleep(0.5)
+                        recv = recv_msg(sock)
+                        print("{}".format(recv))
+                except Exception as ex:
+                    print(ex)
+            elif optiune == "5":
+                try:
+                    send_msg(sock, "5")
                     
+                    recv = recv_msg(sock)
+                    print("recv msg  ----> {}".format(recv))
+                    if recv:
+                        print("[INFO] You are going to delete all data..\n")
+                    else:
+                        print("[INFO] You don`t have any data to delete!\n")
+                    
+                except Exception as ex:
+                   print(ex)
+
+            elif optiune == "6":
+                try:
+                    send_msg(sock, "6")
+                    recv_msg = recv_msg(sock)
+                    print("recv msg  ----> {}".format(recv))
+                    if recv:
+                        secret = input("Introduceti numele secretului: \n")
+                        send_msg(sock, secret)
+                        time.sleep(2)
+                    else:
+                        print("broke")
+                except Exception as ex:
+                   print(ex)
+            elif optiune == "7":
+                send_msg(sock, "7")
+                recv_msg = recv_msg(sock)
+                connected = False

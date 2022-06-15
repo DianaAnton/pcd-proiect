@@ -23,6 +23,7 @@
 /* 2. Alte constante */
 #define MAXLINE 1000000   /* nr. max. octeti de citit cu recv() */
 #define MAXHOSTNAME 100 /* nr. max. octeti nume host */
+int sockfd;
 using namespace std;
 // for convenience
 using json = nlohmann::json;
@@ -33,6 +34,13 @@ using json = nlohmann::json;
  *  STABILIRE CLARA A FUNCTIILOR DE CATRE CLIENT
  */
 //============================================================================//
+void signal_sigint(int signal)
+{
+    printf("Adio!\n");
+    close(sockfd);
+    exit(0);
+}
+//----------------------------------------------------------------------------//
 void echoToServer(int sockfd)
 {
     // mesajul
@@ -75,6 +83,7 @@ void echoToServer(int sockfd)
                         send(sockfd, passwd.c_str(), strlen(passwd.c_str()), 0);
                         // reset buffer and wait for messge
                         bzero(line, sizeof(line));
+                        // e bun, primeste ok din functie
                         recv(sockfd, &line, MAXLINE, 0);
                         if (strstr(line, "ok") == 0)
                         {
@@ -104,6 +113,7 @@ void echoToServer(int sockfd)
                         getline(cin >> ws, passwd);
                         send(sockfd, passwd.c_str(), strlen(passwd.c_str()), 0);
 
+                        sleep(1);
                         // gets ok from server
                         bzero(line, sizeof(line));
                         size = recv(sockfd, line, MAXLINE, 0);
@@ -309,8 +319,9 @@ void echoToServer(int sockfd)
 //============================================================================//
 int main(int argc, char *argv[])
 {
-    int sockfd, rc;
+    int rc;
     struct sockaddr_in serv_addr, cli_addr;
+    signal(SIGINT, signal_sigint);
 
     sockfd = socket(AF_INET, SOCK_STREAM, 0);
 

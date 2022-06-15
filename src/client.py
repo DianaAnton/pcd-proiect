@@ -58,7 +58,7 @@ if __name__ == '__main__' :
 
     #username = "python2"
     #password = "python2" 
-    #ok = "ok"
+    #ok = "ok\0"
     connected = False
     while True:
 

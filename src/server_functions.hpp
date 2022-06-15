@@ -105,7 +105,7 @@ string create_user(char *username, char *passwd)
   // close write file
   client_write.close();
   pthread_mutex_unlock(&file_mutex);
-  return "ok";
+  return "ok\0";
 }
 //----------------------------------------------------------------------------//
 bool login_user(char *username, char *passwd)
@@ -138,8 +138,11 @@ bool send_option_to_server(char option[10], int sockfd)
     char line[MAXLINE];
     int size;
     bzero(line, sizeof(line));
+    // send the option to server
     send(sockfd, option, sizeof(&option), 0);
-    size = recv(sockfd, &line, sizeof("ok"), 0);
+    sleep(1);
+    // receive confirmation
+    size = recv(sockfd, &line, sizeof("ok\0"), 0);
     cout << "recv: " << size << endl;
     cout << "ERRNO: " << errno << " " << strerror(errno) << endl;
     if (strncmp(line, "ok\0", sizeof("ok\0")) == 0)
@@ -148,6 +151,27 @@ bool send_option_to_server(char option[10], int sockfd)
     }
     bzero(line, sizeof(line));
     return false;
+}
+//============================================================================//
+//                                                                            //
+//                                 SERVER                                     //
+//                                                                            //
+//============================================================================//
+int receive_option_from_client(int sockfd)
+{
+    char recv_msg[MAXLINE];
+    int size, option = 0;
+    bzero(recv_msg, sizeof(recv_msg));
+    // receive the option from the client
+    size = recv(sockfd, &recv_msg, MAXLINE, 0);
+    recv_msg[size] = '\0';
+    option = atoi(recv_msg);
+    printf("[DEBUG] Message received: %s\n", recv_msg);
+    // send confirmation to client, ok
+    send(sockfd, "ok\0", sizeof("ok\0"), 0);
+    cout << "recv: " << recv_msg << " opt " << option << endl;
+    cout << "ERRNO: " << errno << " " << strerror(errno) << endl;
+    return option;
 }
 //============================================================================//
 //                                                                            //
@@ -181,6 +205,7 @@ bool add_user_data(char *key, char *value, int client_id)
   // close write file
   data_write.close();
   pthread_mutex_unlock(&file_mutex);
+  return true;
 }
 //----------------------------------------------------------------------------//
 string get_user_data(char *key, int client_id)
@@ -332,7 +357,7 @@ void deleteAllData(int clientId)
 //----------------------------------------------------------------------------//
 string delete_specific_data(string key, int client_id)
 {
-  printf("[DEBUG] Delete pair with key: %c\n", key);
+  printf("[DEBUG] Delete pair with key: %s\n", key);
   // open read file
   pthread_mutex_lock(&file_mutex);
   ifstream data_read("data.json");
@@ -565,7 +590,7 @@ void server_admin_menu(int *sockfd, int client_id)
   // recv option not connected
   recv_msg_len = recv(*sockfd, &recv_msg, MAXLINE, 0);
   printf("[DEBUG] Message received: %s\n", recv_msg);
-  error = send(*sockfd, "ok", sizeof("ok"), 0);
+  error = send(*sockfd, "ok\0", sizeof("ok\0"), 0);
   // cout << "[DEBUG] Send: " << error << endl;
   cout << "[ERROR] ERRNO: " << errno << " " << strerror(errno) << endl;
   // printf("[DEBUG] Message sent: %s\n");
@@ -609,7 +634,7 @@ void server_admin_menu(int *sockfd, int client_id)
         if (add_user_data(key, value, client_id))
         {
           cout << "[INFO] Added data " << key << " : " << value << "!\n";
-          send(*sockfd, "ok", sizeof("ok"), 0);
+          send(*sockfd, "ok\0", sizeof("ok\0"), 0);
           // exit the child
           exit(0);
         }

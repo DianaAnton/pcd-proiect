@@ -28,6 +28,7 @@ using json = nlohmann::json;
 #define MAXHOSTNAME 100
 #define NRTHREADS 100
 pthread_mutex_t admin_mutex;
+int sock_fd;
 
 // pthread_mutex_t mutex;
 // bool admin_connection = false;
@@ -207,7 +208,12 @@ using namespace std;
 //   close(new_sockfd);
 // }
 //----------------------------------------------------------------------------//
-
+void signal_sigint(int signal)
+{
+    printf("Adio!\n");
+    close(sock_fd);
+    exit(0);
+}
 //----------------------------------------------------------------------------//
 void *admin_handler(void *args)
 {
@@ -231,7 +237,7 @@ void *admin_handler(void *args)
   { // recv option not connected
     recv_msg_len = recv(*sockfd, &recv_msg, MAXLINE, 0);
     printf("[DEBUG] Message received: %s\n", recv_msg);
-    error = send(*sockfd, "ok", sizeof("ok"), 0);
+    error = send(*sockfd, "ok\0", sizeof("ok\0"), 0);
     // cout << "[DEBUG] Send: " << error << endl;
     cout << "[ERROR] ERRNO: " << errno << " " << strerror(errno) << endl;
     // printf("[DEBUG] Message sent: %s\n");
@@ -317,7 +323,7 @@ void *admin_handler(void *args)
             if (login_user(username, passwd))
             {
               cout << "[INFO] Logged in!\n";
-              send(*sockfd, "ok", sizeof("ok"), 0);
+              send(*sockfd, "ok\0", sizeof("ok\0"), 0);
               // exit the child
               exit(0);
             }
@@ -366,7 +372,7 @@ void *admin_handler(void *args)
       bzero(recv_msg, sizeof(recv_msg));
       recv_msg_len = recv(*sockfd, &recv_msg, MAXLINE, 0);
       printf("[DEBUG] Message received: %s\n", recv_msg);
-      error = send(*sockfd, "ok", sizeof("ok"), 0);
+      error = send(*sockfd, "ok\0", sizeof("ok\0"), 0);
       cout << "[ERROR] ERRNO: " << errno << " " << strerror(errno) << endl;
 
       // convert to int
@@ -443,6 +449,7 @@ void *client_handler(void *args)
   char send_msg[MAXLINE] = "Te-ai conectat la server!";
   // pthread_mutex_unlock(&mutex);
   // bzero(mssg, MAXLINE);
+  // send welcome message
   error = send(*sockfd, send_msg, MAXLINE, 0);
   cout << "[DEBUG] Send: " << error << endl;
   cout << "[ERROR] ERRNO: " << errno << " " << strerror(errno) << endl;
@@ -450,16 +457,7 @@ void *client_handler(void *args)
   while (1)
   { // recv option not connected
     bzero(&recv_msg, sizeof(recv_msg));
-    recv_msg_len = recv(*sockfd, &recv_msg, MAXLINE, 0);
-    printf("[DEBUG] Message received: %s\n", recv_msg);
-    error = send(*sockfd, "ok", sizeof("ok"), 0);
-    // cout << "[DEBUG] Send: " << error << endl;
-    cout << "[ERROR] ERRNO: " << errno << " " << strerror(errno) << endl;
-    // printf("[DEBUG] Message sent: %s\n");
-
-    // convert to int
-    option = atoi(recv_msg);
-    bzero(recv_msg, sizeof(recv_msg));
+    option = receive_option_from_client(*sockfd);
 
     if (login == false)
     {
@@ -499,7 +497,7 @@ void *client_handler(void *args)
           string msg = create_user(username, passwd);
           char msg_char[100];
           strcpy(msg_char, msg.c_str());
-          if (strncmp(msg_char, "ok", sizeof("ok")) == 0)
+          if (strncmp(msg_char, "ok\0", sizeof("ok\0")) == 0)
           {
             cout << "[INFO] New user created! Username: " << username << endl;
           }
@@ -507,6 +505,7 @@ void *client_handler(void *args)
           {
             cout << msg;
           }
+          // e bun
           send(*sockfd, msg_char, sizeof(msg_char), 0);
           exit(0);
         }
@@ -551,7 +550,8 @@ void *client_handler(void *args)
           if (login_user(username, passwd))
           {
             cout << "[INFO] Logged in!\n";
-            send(*sockfd, "ok", sizeof("ok"), 0);
+            // e bun, se sincronizeaza
+            send(*sockfd, "ok\0", sizeof("ok\0"), 0);
             // exit the child
             exit(0);
           }
@@ -589,7 +589,12 @@ void *client_handler(void *args)
         send(*sockfd, "Te-ai deconectat de la server!",
              sizeof("Te-ai deconectat de la server!"), 0);
         close(*sockfd);
-        break;
+        // break;
+        pthread_exit(0);
+      }
+      default:
+      {
+        exit(1);
       }
       }
     }
@@ -632,7 +637,7 @@ void *client_handler(void *args)
           if (add_user_data(key, value, client_id))
           {
             cout << "[INFO] Added data " << key << " : " << value << "!\n";
-            send(*sockfd, "ok", sizeof("ok"), 0);
+            send(*sockfd, "ok\0", sizeof("ok\0"), 0);
             // exit the child
             exit(0);
           }
@@ -825,6 +830,10 @@ void *client_handler(void *args)
         client_id = 0;
         break;
       }
+      default:
+      {
+        exit(1);
+      }
       }
     }
   }
@@ -833,7 +842,7 @@ void *client_handler(void *args)
 int main()
 {
   struct sockaddr_in cli_addr, serv_addr;
-  int msg_len, sockfd, new_sockfd, connections;
+  int msg_len, new_sockfd, connections;
   struct hostent *he;
   char msg[MAXLINE];
   pthread_t thds[NRTHREADS];
@@ -841,7 +850,7 @@ int main()
   char *NumeServer = (char *)"pcd proiect"; // numele serverului luat din argv[0]
   char NumeHostServer[MAXHOSTNAME];
 
-  // pthread_mutex_init(&mutex, NULL);
+  signal(SIGINT, signal_sigint);
 
   gethostname(NumeHostServer, MAXHOSTNAME);
   printf("\n----TCPServer startat pe hostul: %s\n", NumeHostServer);
@@ -853,11 +862,11 @@ int main()
          inet_ntoa(serv_addr.sin_addr)); // conversie adresa binarea in ASCII (ex. "127.0.0.1")
   /* numele procesului server luat de pe linia de comanda */
 
-  if ((sockfd = socket(AF_INET, SOCK_STREAM, 0)) < 0)
+  if ((sock_fd = socket(AF_INET, SOCK_STREAM, 0)) < 0)
     fprintf(stderr, "EROARE server: nu pot sa deschid stream socket \n");
 
   int check = 1;
-  if (setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR, &check, sizeof(int)) < 0)
+  if (setsockopt(sock_fd, SOL_SOCKET, SO_REUSEADDR, &check, sizeof(int)) < 0)
     fprintf(stderr, "setsockopt(SO_REUSEADDR) failed");
 
   bzero((char *)&serv_addr, sizeof(serv_addr));
@@ -865,12 +874,12 @@ int main()
   serv_addr.sin_addr.s_addr = htonl(INADDR_ANY);
   serv_addr.sin_port = htons(SERV_TCP_PORT);
 
-  if (bind(sockfd, (struct sockaddr *)&serv_addr, sizeof(serv_addr)) < 0)
+  if (bind(sock_fd, (struct sockaddr *)&serv_addr, sizeof(serv_addr)) < 0)
     fprintf(stderr, "EROARE server: nu pot sa asignez un nume adresei locale \n");
 
   printf("---TCPServer %s: ++++ astept conexiune clienti pe PORT: %d++++\n\n", NumeServer, ntohs(serv_addr.sin_port));
 
-  if (listen(sockfd, 100) < 0)
+  if (listen(sock_fd, 100) < 0)
   {
     fprintf(stderr, "Eroare!");
     exit(0);
@@ -880,7 +889,7 @@ int main()
   {
     bzero((char *)&cli_addr, sizeof(cli_addr));
     socklen_t cli_addr_size = sizeof(cli_addr);
-    new_sockfd = accept(sockfd, (struct sockaddr *)&cli_addr, &cli_addr_size);
+    new_sockfd = accept(sock_fd, (struct sockaddr *)&cli_addr, &cli_addr_size);
 
     if (new_sockfd < 0)
     {
@@ -894,7 +903,7 @@ int main()
     if (strncmp(msg, "admin\0", sizeof("admin\0")) == 0)
     { // start thread cu functie admin
       if (admin_connection == false)
-        
+
       { // daca nu mai e conectat unul deja
         pthread_create(&thds[connections], NULL, admin_handler,
                        (void *)&new_sockfd);
@@ -920,7 +929,7 @@ int main()
       close(new_sockfd);
     }
   }
-  close(sockfd);
+  close(sock_fd);
   close(new_sockfd);
 }
 //============================================================================//

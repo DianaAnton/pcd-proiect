@@ -26,6 +26,7 @@
 /* 2. Alte constante */
 #define MAXLINE 1000000   /* nr. max. octeti de citit cu recv() */
 #define MAXHOSTNAME 100 /* nr. max. octeti nume host */
+int sockfd;
 using namespace std;
 using json = nlohmann::json;
 //pthread_mutex_t file_mutex;
@@ -37,6 +38,13 @@ using json = nlohmann::json;
  *  STABILIRE CLARA A FUNCTIILOR DE CATRE ADMIN
  */
 //============================================================================//
+void signal_sigint(int signal)
+{
+    printf("Adio!\n");
+    close(sockfd);
+    exit(0);
+}
+//----------------------------------------------------------------------------//
 void echoToServer(int sockfd)
 {
     // mesajul
@@ -49,6 +57,7 @@ void echoToServer(int sockfd)
     // send admin type
     send(sockfd, "admin", sizeof("admin"), 0);
     // bzero(line, sizeof(line));
+    sleep(1);
     recv(sockfd, &line, MAXLINE, 0);
     cout << line << endl;
 
@@ -214,8 +223,9 @@ void echoToServer(int sockfd)
 //============================================================================//
 int main(int argc, char *argv[])
 {
-    int sockfd, rc;
+    int rc;
     struct sockaddr_in serv_addr, cli_addr;
+    signal(SIGINT, signal_sigint);
 
     sockfd = socket(AF_INET, SOCK_STREAM, 0);
 

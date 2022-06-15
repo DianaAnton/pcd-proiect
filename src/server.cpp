@@ -734,8 +734,9 @@ void *client_handler(void *args)
           int n = date.length();
           char dataToSend[n + 1];
           strcpy(dataToSend, date.c_str());
-          int s = write(sockfd, dataToSend, n + 1);
-          // send(*sockfd, dataToSend, sizeof(dataToSend), 0);
+          printf("data %s", dataToSend);
+          //int s = write(sockfd, dataToSend, n + 1);
+          send(sockfd, dataToSend, sizeof(dataToSend), 0);
         }
         else if (child > 1)
         { // parent wait for child

@@ -429,173 +429,177 @@ string delete_specific_data(string key, int client_id)
 //============================================================================//
 void admin_menu(int sockfd)
 {
-    bool connected = false;
-    int option;
-    char line[MAXLINE];
-    bzero(line, MAXLINE);
-    cout << "1. Adaugare date noi\n";
-    cout << "2. Vizualizare date\n";
-    cout << "3. Cauta o valoare specifica\n";
-    cout << "4. Modificare date\n";
-    cout << "5. Stergere TOATE datele\n";
-    cout << "6. Stergere o pereche anume\n";
-    cout << "7. Mergi inapoi\n";
-    cout << "8. Exit\n";
-    cout << "Optiune: ";
-    cin >> option;
-    switch (option)
+    while(1)
     {
-      case 1:
-      { // Add new data
-        if (send_option_to_server((char *)"1", sockfd))
-        {
-            string key, value;
-            cout << "Introduceti numele secretului: ";
-            getline(cin >> ws, key);
-            //send(sockfd, key.c_str(), sizeof(key.c_str()), 0);
-            int n = write(sockfd, key.c_str(), key.length() + 1);
-            cout << "Introduceti valoarea: ";
-            getline(cin >> ws, value);
-            sleep(1);
-            //send(sockfd, value.c_str(), sizeof(value.c_str()), 0);
-            int s = write(sockfd, value.c_str(), value.length() + 1);
+      bool connected = false;
+      int option;
+      char line[MAXLINE];
+      bzero(line, MAXLINE);
+      cout << "1. Adaugare date noi\n";
+      cout << "2. Vizualizare date\n";
+      cout << "3. Cauta o valoare specifica\n";
+      cout << "4. Modificare date\n";
+      cout << "5. Stergere TOATE datele\n";
+      cout << "6. Stergere o pereche anume\n";
+      cout << "7. Mergi inapoi\n";
+      cout << "8. Exit\n";
+      cout << "Optiune: ";
+      cin >> option;
+      switch (option)
+      {
+        case 1:
+        { // Add new data
+          if (send_option_to_server((char *)"1", sockfd))
+          {
+              string key, value;
+              cout << "Introduceti numele secretului: ";
+              getline(cin >> ws, key);
+              //send(sockfd, key.c_str(), sizeof(key.c_str()), 0);
+              int n = write(sockfd, key.c_str(), key.length() + 1);
+              cout << "Introduceti valoarea: ";
+              getline(cin >> ws, value);
+              sleep(1);
+              //send(sockfd, value.c_str(), sizeof(value.c_str()), 0);
+              int s = write(sockfd, value.c_str(), value.length() + 1);
+          }
+          else
+          {
+              printf("[ERROR]\n");
+          }
+          break;
         }
-        else
-        {
-            printf("[ERROR]\n");
+        case 2:
+        { // Read all data
+          if (send_option_to_server((char *)"2", sockfd))
+          {
+              sleep(1);
+              bzero(line, MAXLINE);
+              int n = read(sockfd, &line, MAXLINE);
+              cout << line << endl;
+              // line[n] = "\n";
+              json data = json::parse(line);
+              cout << endl;
+              cout << data.dump(4) << endl;
+              cout << endl;
+              // cout << "[INFO] Your data is gonna be printed --->" << line << endl;
+          }
+          else
+          {
+              printf("[ERROR]\n");
+          }
+          break;
         }
-        break;
-      }
-      case 2:
-      { // Read all data
-        if (send_option_to_server((char *)"2", sockfd))
-        {
-            sleep(1);
-            bzero(line, MAXLINE);
-            int n = read(sockfd, &line, MAXLINE);
-            cout << line << endl;
-            // line[n] = "\n";
-            json data = json::parse(line);
-            cout << endl;
-            cout << data.dump(4) << endl;
-            cout << endl;
-            // cout << "[INFO] Your data is gonna be printed --->" << line << endl;
+        case 3:
+        { // Read specific data
+          if (send_option_to_server((char *)"3", sockfd))
+          {
+              bzero(line, MAXLINE);
+              string key;
+              cout << "Introduceti numele secretului: ";
+              getline(cin >> ws, key);
+              cout << endl;
+              send(sockfd, key.c_str(), sizeof(key.c_str()), 0);
+              sleep(2);
+              bzero(line, sizeof(line));
+              recv(sockfd, &line, MAXLINE, 0);
+              json obj;
+              obj[key] = line;
+              // cout << key <<": " << line << endl;
+              cout << obj.dump(4) << endl;
+              cout << endl;
+          }
+          else
+          {
+              printf("[ERROR]\n");
+          }
+          break;
         }
-        else
-        {
-            printf("[ERROR]\n");
+        case 4:
+        { // Update data
+          if (send_option_to_server((char *)"4", sockfd))
+          {
+              bzero(line, MAXLINE);
+              string key, value;
+              cout << "Introduceti numele secretului: ";
+              getline(cin >> ws, key);
+              //send(sockfd, key.c_str(), sizeof(key.c_str()), 0);
+              int n = write(sockfd, key.c_str(), key.length() + 1);
+              cout << "Introduceti valoarea: ";
+              getline(cin >> ws, value);
+              sleep(1);
+              int s = write(sockfd, value.c_str(), value.length() + 1);
+              sleep(2);
+              bzero(line, sizeof(line));
+              read(sockfd, &line, MAXLINE);
+              cout << line;
+          }
+          else
+          {
+              printf("[ERROR]\n");
+          }
+          break;
         }
-        break;
-      }
-      case 3:
-      { // Read specific data
-        if (send_option_to_server((char *)"3", sockfd))
-        {
-            bzero(line, MAXLINE);
-            string key;
-            cout << "Introduceti numele secretului: ";
-            getline(cin >> ws, key);
-            cout << endl;
-            send(sockfd, key.c_str(), sizeof(key.c_str()), 0);
-            sleep(2);
-            bzero(line, sizeof(line));
-            recv(sockfd, &line, MAXLINE, 0);
-            json obj;
-            obj[key] = line;
-            // cout << key <<": " << line << endl;
-            cout << obj.dump(4) << endl;
-            cout << endl;
+        case 5:
+        { // Delete data
+          if (send_option_to_server((char *)"5", sockfd))
+          {
+              printf("[INFO] You are going to delete all data....\n");
+          }
+          else
+          {
+              printf("[ERROR]\n");
+          }
+          break;
         }
-        else
-        {
-            printf("[ERROR]\n");
+        case 6:
+        { // Delete specific pair
+          if (send_option_to_server((char *)"6", sockfd))
+          {
+              string key;
+              cout << "Introduceti numele secretului: ";
+              getline(cin >> ws, key);
+              cout << endl;
+              send(sockfd, key.c_str(), sizeof(key.c_str()), 0);
+              sleep(2);
+              bzero(line, sizeof(line));
+              read(sockfd, &line, MAXLINE);
+              cout << line;
+          }
+          else
+          {
+              printf("[ERROR]\n");
+          }
+          break;
         }
-        break;
-      }
-      case 4:
-      { // Update data
-        if (send_option_to_server((char *)"4", sockfd))
-        {
-            bzero(line, MAXLINE);
-            string key, value;
-            cout << "Introduceti numele secretului: ";
-            getline(cin >> ws, key);
-            //send(sockfd, key.c_str(), sizeof(key.c_str()), 0);
-            int n = write(sockfd, key.c_str(), key.length() + 1);
-            cout << "Introduceti valoarea: ";
-            getline(cin >> ws, value);
-            sleep(1);
-            int s = write(sockfd, value.c_str(), value.length() + 1);
-            sleep(2);
-            bzero(line, sizeof(line));
-            read(sockfd, &line, MAXLINE);
-            cout << line;
+        case 7:
+        { // Go Back
+          if (send_option_to_server((char *)"7", sockfd))
+          {
+              return;
+              break;
+          }
+          else
+          {
+              printf("[ERROR]\n");
+          }
+          break;
         }
-        else
-        {
-            printf("[ERROR]\n");
+        case 8:
+        { // Exit
+          if (send_option_to_server((char *)"8", sockfd))
+          {
+              // connected = false;
+              close(sockfd);
+              pthread_exit(0);
+          }
+          else
+          {
+              printf("[ERROR]\n");
+          }
+          break;
         }
-        break;
-      }
-      case 5:
-      { // Delete data
-        if (send_option_to_server((char *)"5", sockfd))
-        {
-            printf("[INFO] You are going to delete all data....\n");
-        }
-        else
-        {
-            printf("[ERROR]\n");
-        }
-        break;
-      }
-      case 6:
-      { // Delete specific pair
-        if (send_option_to_server((char *)"6", sockfd))
-        {
-            string key;
-            cout << "Introduceti numele secretului: ";
-            getline(cin >> ws, key);
-            cout << endl;
-            send(sockfd, key.c_str(), sizeof(key.c_str()), 0);
-            sleep(2);
-            bzero(line, sizeof(line));
-            read(sockfd, &line, MAXLINE);
-            cout << line;
-        }
-        else
-        {
-            printf("[ERROR]\n");
-        }
-        break;
-      }
-      case 7:
-      { // Go Back
-        if (send_option_to_server((char *)"7", sockfd))
-        {
-            break;
-        }
-        else
-        {
-            printf("[ERROR]\n");
-        }
-        break;
-      }
-      case 8:
-      { // Exit
-        if (send_option_to_server((char *)"8", sockfd))
-        {
-            connected = false;
-            close(sockfd);
-            exit(0);
-        }
-        else
-        {
-            printf("[ERROR]\n");
-        }
-        break;
-      }
-  }
+    }
+    }
 }
 //----------------------------------------------------------------------------//
 void server_admin_menu(int sockfd, int client_id)
@@ -616,7 +620,7 @@ void server_admin_menu(int sockfd, int client_id)
 
     // convert to int
     option = receive_option_from_client(sockfd);
-    fprintf(stderr, "option----%d\n", option);
+    fprintf(stderr, "server_menu_option----%d\n", option);
     fprintf(stderr, "before switch\n");
     bzero(recv_msg, sizeof(recv_msg));
     switch (option)
@@ -659,7 +663,7 @@ void server_admin_menu(int sockfd, int client_id)
             cout << "[INFO] Added data " << key << " : " << value << "!\n";
             send(sockfd, "ok\0", sizeof("ok\0"), 0);
             // exit the child
-            exit(0);
+            exit(1);
           }
           else
           {
@@ -835,7 +839,7 @@ void server_admin_menu(int sockfd, int client_id)
           cout << data << endl;
           write(sockfd, data.c_str(), sizeof(data.c_str()));
           // exit the child
-          exit(0);
+          exit(1);
         }
         else if (child > 1)
         { // parent wait for child
@@ -850,7 +854,8 @@ void server_admin_menu(int sockfd, int client_id)
       case 7:
       { // Go back
         client_id = 0;
-        // login = false;
+        //login = false;
+        exit(1);
         return;
         break;
       }
@@ -860,6 +865,7 @@ void server_admin_menu(int sockfd, int client_id)
         send(sockfd, "Te-ai deconectat de la server!",
                 sizeof("Te-ai deconectat de la server!"), 0);
         sleep(1);
+        exit(1);
         close(sockfd);
         break;
       }

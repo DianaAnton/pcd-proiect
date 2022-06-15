@@ -210,7 +210,8 @@ using namespace std;
 //----------------------------------------------------------------------------//
 void *admin_handler(void *args)
 {
-  // pthread_mutex_lock(&admin_mutex);
+  pthread_mutex_lock(&admin_mutex);
+  admin_connection = true;
   int recv_msg_len, option, error;
   int *sock = (int *)args;
   int sockfd = *(sock);
@@ -231,7 +232,7 @@ void *admin_handler(void *args)
   { // recv option not connected
     bzero(&recv_msg, sizeof(recv_msg));
     option = receive_option_from_client(sockfd);
-    fprintf(stderr, "option----%d\n", option);
+    fprintf(stderr, "before login option----%d\n", option);
 
     if (login == false)
     {
@@ -385,8 +386,8 @@ void *admin_handler(void *args)
       // recv_msg_len = recv(sockfd, &recv_msg, MAXLINE, 0);
       // printf("[DEBUG] Message received: %s\n", recv_msg);
       // error = send(sockfd, "ok\0", sizeof("ok\0"), 0);
-      option = receive_option_from_client(sockfd);
-      fprintf(stdout, "option----%d\n", option);
+      // option = receive_option_from_client(sockfd);
+      fprintf(stdout, "pt cine srv option----%d\n", option);
       cout << "[ERROR] ERRNO: " << errno << " " << strerror(errno) << endl;
 
       // convert to int
@@ -398,11 +399,24 @@ void *admin_handler(void *args)
       case 1:
       { // For admin
         // call the common menu for the admin with admin id
-        server_admin_menu(sockfd, admin_id);
+        int status;
+        cout << "case 1 pt admin\n";
+        pid_t child = fork();
+        if (child == 0)
+        {
+          server_admin_menu(sockfd, admin_id);
+          exit(0);
+        }
+        else if(child > 1)
+        {
+          
+          wait(&status);
+        }
         break;
       }
       case 2:
       { // For client
+        cout << "case 2 pt admin\n";
         char username[100];
         bzero(recv_msg, sizeof(recv_msg));
         bzero(username, sizeof(username));
@@ -428,7 +442,18 @@ void *admin_handler(void *args)
         clients_read.close();
         printf("[DEBUG] Username :%s \n", username);
         // call the common menu for the admin with client id
-        server_admin_menu(sockfd, client_id);
+        int status;
+        pid_t child = fork();
+        if (child == 0)
+        {
+          server_admin_menu(sockfd, client_id);
+          exit(0);
+        }
+        else if(child > 1)
+        {
+          
+          wait(&status);
+        }
         break;
       }
       case 3:
@@ -450,7 +475,8 @@ void *admin_handler(void *args)
       }
     } //-------------------------Logged in ------------------------------------//
   }
-  // pthread_mutex_unlock(&admin_mutex);
+  admin_connection = false;
+  pthread_mutex_unlock(&admin_mutex);
 }
 //----------------------------------------------------------------------------//
 void *client_handler(void *args)

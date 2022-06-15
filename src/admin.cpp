@@ -160,32 +160,53 @@ void echoToServer(int sockfd)
             {
                 case 1:
                 { // Admin
-                    //if (send_option_to_server((char *)"1", sockfd))
-                    //{
+                if (send_option_to_server((char *)"1", sockfd))
+                {
+                    int status;
+                    pid_t child = fork();
+                    if (child == 0)
+                    {
                         admin_menu(sockfd);
-                   // }
-                   // else
-                   // {
-                       // printf("[ERROR]\n");
-                   // }
-                    break;
+                        exit(0);
+                    }
+                    else if(child > 1)
+                    {                    
+                        wait(&status);
+                    }
+                    
+                }
+                
+                break;
                 }
                 case 2:
                 { // Other client
-                    //if (send_option_to_server((char *)"2", sockfd))
-                    //{
+                    if (send_option_to_server((char *)"2", sockfd))
+                    {
                         string username;
                         cout << "Introdu numele utilizatorului: \n";
                         getline(cin >> ws, username);
 
                         int s = write(sockfd, username.c_str(), username.length() + 1);
 
+                        int status;
+                        pid_t child = fork();
+                        if (child == 0)
+                        {
                         admin_menu(sockfd);
-                    //}
-                    //else
-                   //{
-                        printf("[ERROR]\n");
-                    //}
+                        exit(0);
+                        }
+                        else if(child > 1)
+                        {
+                        
+                        wait(&status);
+                        }
+                    }
+                    
+                //     //}
+                //     //else
+                //    //{
+                //         printf("[ERROR]\n");
+                //     //}
                     break;                
                 }
                 case 3:
@@ -208,8 +229,9 @@ void echoToServer(int sockfd)
                         size = recv(sockfd, line, MAXLINE, 0);
                         line[size] = '\0';
                         printf("%s\n", line);
+                        exit(1);
                         close(sockfd);
-                        exit(0);
+                        
                     }
                     break;
 
